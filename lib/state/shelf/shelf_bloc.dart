@@ -1,68 +1,54 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:meta/meta.dart';
+import 'package:flutter/material.dart';
+import 'package:shelf/extensions/map-entensions.dart';
 import 'package:shelf/models/HttpState.dart';
+import 'package:shelf/models/Pageable.dart';
+import 'package:shelf/singletons/persistance.dart';
+import 'package:shelf/state/WithHttpState.dart';
+import 'package:shelf/state/httpStates.dart';
+
+import '../../models/shelf.dart';
 part 'shelf_event.dart';
 part 'shelf_state.dart';
 
 class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
+  final _persistance = Persistance();
+
   ShelfBloc() : super(ShelfState.initial()) {
-    on<FetchAllMantraInfo>((event, emit) async {
-      if (state.allMantraInfo != null) return emit(state.copyWith(httpStates:  state.httpStates.clone()..remove(Httpstates.ALL_MANTRA_INFO)));
-      emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.ALL_MANTRA_INFO,const HttpState.loading())));
+    on<FetchItemsInShelf>((event,emit)async{
+      if(state.hasPage(pageNo: event.pageNo,shelfId: event.shelfId) ||
+          !state.canLoadPage(pageNo: event.pageNo)) return emit(state.copyWith());
+
+      emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.ITEMS_IN_SHELF,const HttpState.loading())));
       try {
-        final mantrasInfo = await mantraRepository.getAllMantraInfo(cancelToken: event.cancelToken);
-        emit(state.copyWith(httpStates:state.httpStates.clone()..remove(Httpstates.ALL_MANTRA_INFO), mantraInfo: Map.fromEntries(mantrasInfo.data!.map((mantraInfo) => MapEntry(mantraInfo.id, mantraInfo)))));
-      }  on DioException catch (e) {
-        emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.ALL_MANTRA_INFO, HttpState.error(error: Utils.handleDioException(e)))));
+        final Pageable<Object> itemsInShelf = await _persistance.getItemsInShelf(shelfId: event.shelfId,limit: ShelfState.defaultPageSize,pageNo: event.pageNo);
+
+        final List<Shelf> shelfs=[];
+        final List<File> files=[];
+        for(final item in itemsInShelf.data){
+          if(item is Shelf) {
+            shelfs.add(item);
+          } else if(item is File) {
+            files.add(item);
+          }else{
+            throw Exception("invalid item type");
+          }
+        }
+        final Shelf rootShelf=state.shelf.addToShelf(shelfId: event.shelfId ?? '0',files:files,shelfs: shelfs );
+        emit(state.copyWith(httpStates:state.httpStates.clone()..remove(Httpstates.ITEMS_IN_SHELF), shelf: rootShelf));
       } catch (e) {
-        emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.ALL_MANTRA_INFO, HttpState.error(error: ErrorModel(message:e.toString())))));
+        emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.ITEMS_IN_SHELF, HttpState.error(error: e.toString()))));
       }
     });
-    on<FetchAllMantraAudioInfo>((event, emit) async {
-      if (!state.canLoadMantraAudioPage(pageNo:event.pageNo)) return emit(state.copyWith());
-      emit(state.copyWith(httpStates: state.httpStates.clone(withh:MapEntry(state.mantraAudioInfoPageKey(pageNo: event.pageNo), const HttpState.loading()))));
-      try {
-        final mantrasAudioInfo = await mantraRepository.getAllMantraAudioInfo(pageNo: event.pageNo,pageSize: ShelfState.defaultMantraAudioInfoPageSize,cancelToken: event.cancelToken);
-        emit(state.copyWith(httpStates:state.httpStates.clone()..remove(state.mantraAudioInfoPageKey(pageNo: event.pageNo)), mantraAudioInfo: MantraAudioPageModel(data: [...(state._mantraAudioInfo?.data??[]),...mantrasAudioInfo.data!.data], total: mantrasAudioInfo.data!.total)));
-      }  on DioException catch (e) {
-        emit(state.copyWith(httpStates: state.httpStates.clone()..put(state.mantraAudioInfoPageKey(pageNo: event.pageNo), HttpState.error(error: Utils.handleDioException(e)))));
-      } catch (e) {
-        emit(state.copyWith(httpStates: state.httpStates.clone()..put(state.mantraAudioInfoPageKey(pageNo: event.pageNo), HttpState.error(error: ErrorModel(message:e.toString())))));
-      }
+    on<MoveItemsTo>((event,emit)async{
+
     });
-    on<FetchAllMantra>((event, emit) {
-      // TODO: implement event handler
-    });
-    on<FetchMantraById>((event, emit) async {
-      if (state.mantraExists(mantraId: event.id)) return emit(state.copyWith(httpStates:  state.httpStates.clone()..remove(Httpstates.MANTRA_BY_ID)));
-      emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.MANTRA_BY_ID,const HttpState.loading())));
-      try {
-        final mantraData = await mantraRepository.getMantraById(id: event.id, cancelToken: event.cancelToken);
-        emit(state.copyWith(httpStates:state.httpStates.clone()..remove(Httpstates.MANTRA_BY_ID), mantras: Map.fromEntries([...state.allMantras.entries, state.getMantraEntry(mantra: mantraData.data!)])));
-      }  on DioException catch (e) {
-        emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.MANTRA_BY_ID, HttpState.error(error: Utils.handleDioException(e)))));
-      } catch (e) {
-        emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.MANTRA_BY_ID, HttpState.error(error: ErrorModel(message:e.toString())))));
-      }
-    });
-    on<FetchMantraAudioById>((event, emit) async {
-      if (state.mantraAudioExists(mantraAudioId: event.id)) return emit(state.copyWith(httpStates:  state.httpStates.clone()..remove(Httpstates.MANTRA_AUDIO_BY_ID)));
-      emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.MANTRA_AUDIO_BY_ID,const HttpState.loading())));
-      try {
-        final mantraAudioData = await mantraRepository.getMantraAudioById(id: event.id, cancelToken: event.cancelToken);
-        emit(state.copyWith(httpStates:state.httpStates.clone()..remove(Httpstates.MANTRA_AUDIO_BY_ID), mantraAudios: Map.fromEntries([...state.allMantrasAudios.entries, state.getMantraAudioEntry(mantraAudio: mantraAudioData.data!)])));
-      }  on DioException catch (e) {
-        emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.MANTRA_AUDIO_BY_ID, HttpState.error(error: Utils.handleDioException(e)))));
-      } catch (e) {
-        emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.MANTRA_AUDIO_BY_ID, HttpState.error(error: ErrorModel(message:e.toString())))));
-      }
-    });
-    on<FetchMantraByTitle>((event, emit) {
-      // TODO: implement event handler
-    });
-    on<FetchMantraAudioByTitle>((event, emit) {
-      // TODO: implement event handler
-    });
+    on<DeleteItems>((event,emit)async{});
+  }
+
+  @override
+  void onEvent(ShelfEvent event) {
+    super.onEvent(event);
   }
 }

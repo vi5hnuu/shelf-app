@@ -2,43 +2,33 @@ part of 'shelf_bloc.dart';
 
 @immutable
 abstract class ShelfEvent {
-  final CancelToken? cancelToken;
-  const ShelfEvent({this.cancelToken});
+  const ShelfEvent();
 }
 
-class FetchAllMantraInfo extends ShelfEvent {
-  const FetchAllMantraInfo({super.cancelToken});
-}
-
-class FetchAllMantraAudioInfo extends ShelfEvent {
+class FetchItemsInShelf extends ShelfEvent{
+  final String? shelfId;
   final int pageNo;
-  const FetchAllMantraAudioInfo({required this.pageNo,super.cancelToken});
+  const FetchItemsInShelf({required this.shelfId,required this.pageNo});
 }
 
-class FetchAllMantra extends ShelfEvent {
-  const FetchAllMantra({CancelToken? cancelToken}) : super(cancelToken: cancelToken);
+class MoveItemsTo extends ShelfEvent{
+  final String? toShelfId;
+  final List<String> fileIds;
+  final List<String> shelfIds;
+
+  const MoveItemsTo({
+      required this.toShelfId,
+      required this.fileIds,
+      required this.shelfIds});
 }
 
-class FetchMantraById extends ShelfEvent {
-  final String id;
+class DeleteItems extends ShelfEvent{
+  final bool permanentDelete;
+  final List<String> fileIds;
+  final List<String> shelfIds;
 
-  const FetchMantraById({required this.id, CancelToken? cancelToken}) : super(cancelToken: cancelToken);
-}
-
-class FetchMantraByTitle extends ShelfEvent {
-  final String title;
-
-  const FetchMantraByTitle({required this.title, CancelToken? cancelToken}) : super(cancelToken: cancelToken);
-}
-
-class FetchMantraAudioById extends ShelfEvent {
-  final String id;
-
-  const FetchMantraAudioById({required this.id, CancelToken? cancelToken}) : super(cancelToken: cancelToken);
-}
-
-class FetchMantraAudioByTitle extends ShelfEvent {
-  final String title;
-
-  const FetchMantraAudioByTitle({required this.title, CancelToken? cancelToken}) : super(cancelToken: cancelToken);
+  const DeleteItems({
+      required this.fileIds,
+      required this.shelfIds,
+      required this.permanentDelete});
 }

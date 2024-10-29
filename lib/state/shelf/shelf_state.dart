@@ -3,85 +3,54 @@ part of 'shelf_bloc.dart';
 @immutable
 class ShelfState extends Equatable with WithHttpState {
   static const defaultPageSize = 15;
-  List<>
+  final Shelf _shelf;
 
   ShelfState({
+    Shelf? shelf,
     Map<String,HttpState>? httpStates,
-  })  : _mantras = mantras,
-        _mantraInfo = mantraInfo,
-        _mantraAudioInfo=mantraAudioInfo,
-        _mantrasAudios=mantraAudios{
+  }) : _shelf = shelf ?? Shelf.rootShelf(){
     this.httpStates.addAll(httpStates ?? {});
   }
 
   ShelfState copyWith({
     Map<String, HttpState>? httpStates,
-    Map<String, MantraInfoModel>? mantraInfo,
-    Map<String, MantraGroupModel>? mantras,
-    MantraAudioPageModel? mantraAudioInfo,
-    Map<String, MantraAudioModel>? mantraAudios,
+    Shelf? shelf,
   }) {
     return ShelfState(
       httpStates: httpStates ?? this.httpStates,
-      mantraInfo: mantraInfo ?? this._mantraInfo,
-      mantraAudioInfo: mantraAudioInfo ?? this._mantraAudioInfo,
-      mantraAudios: mantraAudios ?? this._mantrasAudios,
-      mantras: mantras ?? this._mantras,
+      shelf: shelf ?? _shelf
     );
   }
 
   factory ShelfState.initial() => ShelfState();
 
-  Map<String, MantraInfoModel>? get allMantraInfo => _mantraInfo != null ? Map.unmodifiable(_mantraInfo) : null;
-
-  Map<String, MantraGroupModel> get allMantras => Map.unmodifiable(_mantras);
-
-  MantraAudioPageModel? get allMantraAudioInfo => _mantraAudioInfo;
-
-  Map<String, MantraAudioModel> get allMantrasAudios => Map.unmodifiable(_mantrasAudios);
-
-  MantraAudioModel? nextAudio({required String mantraAudioId}){
-    try{
-      final mantraAudio=allMantrasAudios.values.indexed.firstWhere((element) => element.$2.id==mantraAudioId);
-      return mantraAudio.$1+1<allMantrasAudios.length ? allMantrasAudios.values.elementAt(mantraAudio.$1+1):null;
-    }catch(err){
-      throw new Exception("dev error");
-    }
-  }
-  MantraAudioModel? previousAudio({required String mantraAudioId}){
-    try{
-      final mantraAudio=allMantrasAudios.values.indexed.firstWhere((element) => element.$2.id==mantraAudioId);
-      return mantraAudio.$1-1>=0 ? allMantrasAudios.values.elementAt(mantraAudio.$1-1):null;
-    }catch(err){
-      throw new Exception("dev error");
-    }
+  Shelf get shelf{
+    return _shelf;
   }
 
-  bool mantraExists({required String mantraId}) => _mantras.containsKey(mantraId);
-
-  bool mantraAudioExists({required String mantraAudioId}) => _mantrasAudios.containsKey(mantraAudioId);
-
-  bool hasMantraAudioPage({required int pageNo}){
-    return _mantraAudioInfo?.data.length!=null && _mantraAudioInfo!.data.length>=pageNo*ShelfState.defaultMantraAudioInfoPageSize;
-  }
-  bool canLoadMantraAudioPage({required int pageNo}){
-    return httpStates[mantraAudioInfoPageKey(pageNo: pageNo)]?.loading!=true && !hasMantraAudioPage(pageNo: pageNo) && loadedPageCount+1==pageNo;
+  hasPage({String? shelfId,required int pageNo}){
+    final Shelf? reqShelf= shelfId==null ? _shelf :  _shelf.getShelf(shelfId: shelfId);
+    if(reqShelf==null) throw Exception("Invalid shelf id");
+    return (reqShelf.shelfs.length+reqShelf.files.length)/defaultPageSize>=pageNo;
   }
 
-  get loadedPageCount{
-    return (_mantraAudioInfo?.data.length ?? 0)/ShelfState.defaultMantraAudioInfoPageSize;
+  canLoadPage({String? shelfId,required int pageNo}){
+    if(isLoading(forr: Httpstates.ITEMS_IN_SHELF)) return false;
+
+    final Shelf? reqShelf= shelfId==null ? _shelf :  _shelf.getShelf(shelfId: shelfId);
+    if(reqShelf==null) throw Exception("Invalid shelf id");
+    if(reqShelf.totalPages==null) throw Exception("Total pages not initialized");
+
+    /*
+    if loaded pages is not perfect int means no more pages
+    else we check if tobefetchedpage is more then last fetched page
+    * */
+    final double loadedPages=(reqShelf.files.length+reqShelf.shelfs.length)/defaultPageSize;
+    return (loadedPages.ceil()-loadedPages.floor())==0 && pageNo<=reqShelf.totalPages!.ceil() && loadedPages+1==pageNo;
   }
 
-  MantraGroupModel? getMantraById({required String mantraId}) => _mantras[mantraId];
-  MantraAudioModel? getMantraAudioById({required String mantraAudioId}) => _mantrasAudios[mantraAudioId];
 
-  MapEntry<String, MantraGroupModel> getMantraEntry({required MantraGroupModel mantra}) => MapEntry(mantra.id, mantra);
-  MapEntry<String, MantraAudioModel> getMantraAudioEntry({required MantraAudioModel mantraAudio}) => MapEntry(mantraAudio.id, mantraAudio);
 
   @override
-  List<Object?> get props => [httpStates, _mantraInfo, _mantras,_mantrasAudios,_mantraAudioInfo];
-
-  String mantraAudioInfoPageKey({required int pageNo}) {
-    return 'mantra-audio-page-${pageNo}';
-  }
+  List<Object?> get props => [httpStates, _shelf];
 }

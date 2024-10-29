@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:shelf/constants/IdGenerators.dart';
 import 'package:shelf/constants/constants.dart';
 import 'package:shelf/models/Pageable.dart';
-import 'package:shelf/models/file.dart';
 import 'package:shelf/models/shelf.dart';
 import 'package:shelf/singletons/LoggerSingleton.dart';
 import 'package:sqflite/sqflite.dart';
@@ -66,9 +65,11 @@ class Persistance{
     return _instance;
   }
 
-  static initDB() async{
+  static Future<void> initDB() async{
     if(initiated) throw Exception("do not re-initiate persistance");
     initiated=true;
+
+    _timer=Timer.periodic(const Duration(seconds: 30), (timer) => _deleteOldInactiveItems());
     _db = await openDatabase(_dbName,
         singleInstance: true,
         version: 1,
@@ -83,8 +84,6 @@ class Persistance{
             await db.execute(_fileTableCreateQuery);
             LoggerSingleton().logger.i("Table $_tableFile created");
     });
-
-    _timer=Timer.periodic(const Duration(seconds: 30), (timer) => _deleteOldInactiveItems());
   }
   
   createShelf({
@@ -158,11 +157,11 @@ class Persistance{
     return countResult.isNotEmpty ? countResult.first['total'] as int : 0;
   }
 
-  Future<int> _getTotalFileInShelf({required String shelfId}) async{
+  Future<int> _getTotalFileInShelf({required String? shelfId}) async{
     assert(_db!=null);
     final List<Map<String, dynamic>> countResult = await _db!.query(
-      'SELECT COUNT(*) as total FROM $_tableFile WHERE shelf_id = ?',
-      whereArgs: [shelfId],
+      'SELECT COUNT(*) as total FROM $_tableFile',
+      where: shelfId==null ? 'shelf_id is NULL' : 'shelf_id=$shelfId'
     );
     return countResult.isNotEmpty ? countResult.first['total'] as int : 0;
   }
@@ -187,8 +186,7 @@ class Persistance{
 
     final List<Map<String, dynamic>> filesRaw = await _db!.query(
         _tableFile,
-        where: 'shelf_id = ?',
-        whereArgs: [shelfId],
+        where: shelfId!=null ? 'shelf_id = $shelfId' : 'shelf_id IS NULL',
         limit: limit,
         offset: offset,
         orderBy: 'created_at ASC'
@@ -197,7 +195,7 @@ class Persistance{
     return Future.value(files);
   }
 
-  Future<int> _moveFileToShelf({required String toShelfId,required List<String> fileIds}) async {
+  Future<int> _moveFileToShelf({required String? toShelfId,required List<String> fileIds}) async {
     assert(fileIds.isNotEmpty && _db!=null);
 
     const filesMoveUpdateQuery= '''
@@ -270,11 +268,10 @@ class Persistance{
     return Future.value(Pageable<Shelf>(pageNo: pageNo,totalPages: totalPages,data: shelfs));
   }
 
-  //both shelfs and files
-  Future<Pageable<Object>> getItemsInShelf({required String shelfId,int pageNo = 1, int limit = 10}) async {
+  //both shelfs and files [we allow root to have shelfs and files]
+  Future<Pageable<Object>> getItemsInShelf({required String? shelfId,int pageNo = 1, int limit = 10}) async {
     assert(pageNo>=1 && limit>10 && limit<=50 && _db!=null);
     final totalShelfs=await _getTotalShelfs(parentShelfId: shelfId);
-    final onlyShelfPages=totalShelfs/limit;
 
     final totalFilesInShelf=await _getTotalFileInShelf(shelfId: shelfId);
     final totalPages=(totalShelfs+totalFilesInShelf)/limit;
@@ -286,7 +283,6 @@ class Persistance{
     }
 
     final leftItems=limit-shelfs.length;
-    final filePageNo = pageNo-onlyShelfPages;
     /*
     eg : i want 4th page and shelfs has 3.5 pages -> i want 0.5 pages of files [ offset = 0 ,fetch = 5 ]
     eg : i want 8th page and shelfs has 3.5 pages -> i want 4.5 pages of files [ offset = (4.5-1)*limit ,fetch = 10 = limit ]
@@ -303,10 +299,9 @@ class Persistance{
   Future<int> moveItemsTo({required String? toShelfId,required List<String> fileIds,required List<String> shelfIds}) async{
     assert((fileIds.isNotEmpty || shelfIds.isNotEmpty) && _db!=null);
 
-    if(fileIds.isNotEmpty && toShelfId==null) throw Exception("files can only be moved to shelf");
     List<Future> futures=[];
     if(shelfIds.isNotEmpty) futures.add(_moveShelfsToShelf(toShelfId: toShelfId, shelfIds: shelfIds));
-    if(fileIds.isNotEmpty) futures.add(_moveFileToShelf(toShelfId: toShelfId!, fileIds: fileIds));
+    if(fileIds.isNotEmpty) futures.add(_moveFileToShelf(toShelfId: toShelfId, fileIds: fileIds));
     final result=await Future.wait(futures);
     return result.reduce((value, element) => value+element);
   }

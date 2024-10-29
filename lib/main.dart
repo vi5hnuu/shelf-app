@@ -6,6 +6,7 @@ import 'package:shelf/routing/routes.dart';
 import 'package:shelf/screens/HomeScreen.dart';
 import 'package:shelf/screens/SplashScreen.dart';
 import 'package:shelf/singletons/NotificationService.dart';
+import 'package:shelf/singletons/persistance.dart';
 import 'package:shelf/state/shelf/shelf_bloc.dart';
 
 final parentNavKey=GlobalKey<NavigatorState>();

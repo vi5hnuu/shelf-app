@@ -23,7 +23,7 @@ mixin WithHttpState{
     return false;
   }
 
-  ErrorModel? getAnyError({List<String> forr=const []}){
+  String? getAnyError({List<String> forr=const []}){
     if(forr.isEmpty) forr=httpStates.keys.toList();
         for(final key in forr){
       if(httpStates[key]?.error!=null) return httpStates[key]?.error;
@@ -35,7 +35,7 @@ mixin WithHttpState{
     return httpStates.containsKey(forr) && httpStates[forr]!.error!=null;
   }
 
-  ErrorModel? getError({required final String forr}){
+  String? getError({required final String forr}){
     return httpStates[forr]?.error;
   }
 
