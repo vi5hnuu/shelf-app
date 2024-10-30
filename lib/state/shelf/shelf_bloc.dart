@@ -23,7 +23,10 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
           !state.canLoadPage(pageNo: event.pageNo)) return emit(state.copyWith());
 
       if(isShelfInvalid){
-        if(event.pageNo!=1) throw Exception("shelf is invalid, page no must be 1");
+        if(event.pageNo!=1) {
+          // throw Exception("shelf is invalid, page no must be 1");
+          return add(FetchItemsInShelf(shelfId: event.shelfId, pageNo: 1));
+        }
         emit(state.copyWith(shelf: state.clearShelf(shelfId: event.shelfId),httpStates: state.httpStates.clone()..put(Httpstates.ITEMS_IN_SHELF,const HttpState.loading())));
       }
       if(!isShelfInvalid)
