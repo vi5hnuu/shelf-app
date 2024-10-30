@@ -166,7 +166,7 @@ class Persistance{
     return countResult.isNotEmpty ? countResult.first['total'] as int : 0;
   }
 
-  Future<List<Shelf>> _getShelfs({String? parentShelfId,required int offset,required int limit}) async {
+  Future<List<Shelf>> getShelfsFromOffset({String? parentShelfId,required int offset,required int limit}) async {
     assert(offset>=0 && limit>0 && limit<=50 && _db!=null);
 
     final List<Map<String, dynamic>> shelfsRaw = await _db!.query(
@@ -181,7 +181,7 @@ class Persistance{
     return Future.value(shelfs);
   }
 
-  Future<List<File>> _getFiles({String? shelfId,required int offset,required int limit}) async {
+  Future<List<File>> getFilesFromOffset({String? shelfId,required int offset,required int limit}) async {
     assert(offset>=0 && limit>0 && limit<=50 && _db!=null);
 
     final List<Map<String, dynamic>> filesRaw = await _db!.query(
@@ -261,7 +261,7 @@ class Persistance{
 
   Future<Pageable<Shelf>> getShelfs({String? parentShelfId,int pageNo = 1, int limit = 10}) async {
     assert(pageNo>=1 && limit>10 && limit<=50 && _db!=null);
-    final List<Shelf> shelfs=await _getShelfs(parentShelfId: parentShelfId,offset: (pageNo-1)*limit,limit: limit);
+    final List<Shelf> shelfs=await getShelfsFromOffset(parentShelfId: parentShelfId,offset: (pageNo-1)*limit,limit: limit);
 
     //calculating total pages
     final totalPages=await _getTotalShelfs(parentShelfId: parentShelfId)/limit;
@@ -277,7 +277,7 @@ class Persistance{
     final totalPages=(totalShelfs+totalFilesInShelf)/limit;
 
     //we return shelfs first then files
-    final List<Shelf> shelfs=await _getShelfs(parentShelfId: shelfId,offset: (pageNo-1)*limit, limit: limit);
+    final List<Shelf> shelfs=await getShelfsFromOffset(parentShelfId: shelfId,offset: (pageNo-1)*limit, limit: limit);
     if(shelfs.length==limit){
         return Pageable(data: shelfs, pageNo: pageNo, totalPages: totalPages);
     }
@@ -291,7 +291,7 @@ class Persistance{
     //we should not use (curItems/limit) as it can be like  2.33333 etc which gives wrong skip
     // final int skipItems=((pageNo-onlyShelfPages-1)*limit).toInt();
     final int skipItems=(pageNo*limit-totalShelfs-limit).toInt();
-    final files=await _getFiles(offset: skipItems>=0 ? skipItems : 0, limit: leftItems);
+    final files=await getFilesFromOffset(offset: skipItems>=0 ? skipItems : 0, limit: leftItems);
 
     return Pageable(data: [...shelfs,...files], pageNo: pageNo, totalPages: totalPages);
   }

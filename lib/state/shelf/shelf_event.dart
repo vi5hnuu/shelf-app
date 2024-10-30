@@ -13,22 +13,26 @@ class FetchItemsInShelf extends ShelfEvent{
 
 class MoveItemsTo extends ShelfEvent{
   final String? toShelfId;
+  final String parentShelfId;//the shelf in which fileIds and shelfIds exists
   final List<String> fileIds;
   final List<String> shelfIds;
 
   const MoveItemsTo({
       required this.toShelfId,
+      required this.parentShelfId,
       required this.fileIds,
       required this.shelfIds});
 }
 
 class DeleteItems extends ShelfEvent{
   final bool permanentDelete;
+  final String parentShelfId;//the shelf on which fileIds/shelfIds exists
   final List<String> fileIds;
   final List<String> shelfIds;
 
   const DeleteItems({
+      required this.parentShelfId,
       required this.fileIds,
       required this.shelfIds,
-      required this.permanentDelete});
+      this.permanentDelete=false});
 }
