@@ -77,7 +77,7 @@ class Shelf{
   Shelf? _containShelf({required Shelf shelf,required String shelfId}){
     if(shelf.id==shelfId) return shelf;
     for(final shlf in shelf.shelfs){
-      if(shlf.id==shelfId) return shelf;
+      if(shlf.id==shelfId) return shlf;
     }
     for(final shlf in shelf.shelfs){
       final reqShelf=_containShelf(shelf: shlf, shelfId: shelfId);

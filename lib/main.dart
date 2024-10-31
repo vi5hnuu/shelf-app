@@ -47,7 +47,7 @@ class _ShelfAppState extends State<ShelfApp> with WidgetsBindingObserver {
           path: Routing.home.path,
           pageBuilder: (context, state) => CustomTransitionPage<void>(
             key: state.pageKey,
-            child: const FileManagerScreen(shelfId: null),
+            child: const FileManagerScreen(),
             transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
           ),
         ),
