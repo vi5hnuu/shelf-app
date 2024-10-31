@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:shelf/singletons/LoggerSingleton.dart';
+import 'package:shelf/singletons/persistance.dart';
 import 'package:shelf/state/httpStates.dart';
 import 'package:shelf/state/shelf/shelf_bloc.dart';
 import 'package:shelf/widgets/RetryAgain.dart';
@@ -79,14 +80,17 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
               buildWhen: (previous, current) => previous != current,
               listenWhen: (previous, current) => previous != current,
               builder: (context, state) {
-                final totalItems=state.shelf.shelfs.length+state.shelf.files.length;
                 final shelf=state.shelf.getShelf(shelfId: shelfId ?? ShelfState.ROOT_SHELF_ID);
+                final totalItems=shelf!=null ? (shelf.shelfs.length+shelf.files.length):0;
                 return Padding(
           padding: const EdgeInsets.all(12.0),
           child: Column(
                   mainAxisSize: MainAxisSize.max,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    FilledButton(onPressed: (){
+                      Persistance().createDummyData(0,3,null);
+                    }, child: Text("create folder")),
                     if(shelf!=null && shelf.hasItems()) Expanded(
                       child: GridView.builder(
                         controller: _scrollController,
@@ -94,14 +98,14 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4,crossAxisSpacing: 10,mainAxisSpacing: 10),
                         itemCount: totalItems,
                         itemBuilder: (context, index) {
-                          if(index<state.shelf.shelfs.length){
-                            final shelf=state.shelf.shelfs[index];
+                          if(index<shelf.shelfs.length){
+                            final nestedShelf=shelf.shelfs[index];
                             return GestureDetector(
-                              onDoubleTap: ()=>_goToShelf(shelf.id),
-                              child: Card(child: Text(shelf.title),shadowColor: Colors.red,),
+                              onDoubleTap: ()=>_goToShelf(nestedShelf.id),
+                              child: Card(child: Text(nestedShelf.title),shadowColor: Colors.red,),
                             );
                           }else{
-                            final file=state.shelf.files[index-state.shelf.shelfs.length];
+                            final file=shelf.files[index-shelf.shelfs.length];
                             return GestureDetector(
                               child: Card(child: Text(file.title),shadowColor: Colors.green,),
                             );

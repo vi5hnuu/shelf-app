@@ -19,8 +19,7 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
   ShelfBloc() : super(ShelfState.initial()) {
     on<FetchItemsInShelf>((event,emit)async{
       final isShelfInvalid=state.isShelfInvalid(event.shelfId);
-      if(!isShelfInvalid && state.hasPage(pageNo: event.pageNo,shelfId: event.shelfId) ||
-          !state.canLoadPage(pageNo: event.pageNo)) return emit(state.copyWith());
+      if(!state.canLoadPage(shelfId: event.shelfId,pageNo: event.pageNo)) return emit(state.copyWith());
 
       if(isShelfInvalid){
         if(event.pageNo!=1) {
@@ -46,8 +45,7 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
           }
         }
         final Shelf rootShelf=state.shelf
-            .addToShelf(shelfId: event.shelfId ?? '0',files:files,shelfs: shelfs )
-            .copyWith(totalPages: itemsInShelf.totalPages);
+            .addToShelf(shelfId: event.shelfId ?? ShelfState.ROOT_SHELF_ID,files:files,shelfs: shelfs,totalPages: itemsInShelf.totalPages);
         final invalidatedShelfs=isShelfInvalid ? (state._invalidatedShelfs..remove(event.shelfId)) : state._invalidatedShelfs;
         emit(state.copyWith(invalidatedShelfs: invalidatedShelfs,httpStates:state.httpStates.clone()..remove(Httpstates.ITEMS_IN_SHELF), shelf: rootShelf));
       } catch (e) {

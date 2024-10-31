@@ -159,7 +159,7 @@ class Persistance{
   Future<int> _getTotalShelfs({String? parentShelfId}) async{
     assert(_db!=null);
     final List<Map<String, dynamic>> countResult = await _db!.rawQuery(
-      'SELECT COUNT(*) as total FROM $_tableShelf WHERE ${parentShelfId != null ? 'parent_shelf_id = `?`' : 'parent_shelf_id IS ?'}',[parentShelfId]);
+      'SELECT COUNT(*) as total FROM $_tableShelf WHERE ${parentShelfId != null ? 'parent_shelf_id = ?' : 'parent_shelf_id IS ?'}',[parentShelfId]);
     return countResult.isNotEmpty ? countResult.first['total'] as int : 0;
   }
 
@@ -333,12 +333,55 @@ class Persistance{
     _timer?.cancel();
   }
 
-  void createDummyData()async {
-    for(int i=0;i<30;i++){
-      await createShelf(title: 'shelf-${i+1}',parentShelfId: null,description: 'description-${i+1}');
+  void createDummyData(int from,int maxLevel,String? psid)async {
+    if(from==maxLevel) return;
+    for(int i=0;i< 10;i++){//last 10 shelf has only 10 files [make understand in video]
+      final String shelfId=IdGenerators.generateId(prefix: Constants.SHELF_ID_PREFIX);
+      final String fileId=IdGenerators.generateId(prefix: Constants.SHELF_ID_PREFIX);
+      _dummyShelf(shelfId,psid);
+      _dummyFile(fileId,psid);
+      createDummyData(from+1, maxLevel,shelfId);
     }
-    for(int i=0;i<30;i++){
-      await createFile(title: 'file-${i+1}',shelfId: null,description: 'description-${i+1}',filePath: 'svds',type: 'pdf',size: 10,tags: ['tag-1']);
-    }
+  }
+
+  _dummyShelf(String sid,String? pid)async{
+    String sqlShelfQuery = '''
+    INSERT INTO $_tableShelf (id,parent_shelf_id,title,description,cover_image,tag,created_at,updated_at,last_accessed)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ''';
+    final createTime=DateTime.now().millisecondsSinceEpoch;
+    await _db!.execute(sqlShelfQuery,
+    [sid,
+      pid,
+    'shelf-title-$sid',
+    'shelf-description-$sid}',
+    null,
+    jsonEncode(['tags-$sid']).toString(),
+    createTime,
+    createTime,
+    createTime
+    ]);
+    LoggerSingleton().logger.i("Created Shelf -$sid");
+  }
+  _dummyFile(String fid,String? sid) async{
+    String sqlShelfQuery = '''
+    INSERT INTO $_tableFile (id,shelf_id,file_path,title,type,size,tags,description,created_at,updated_at,last_accessed)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ''';
+    final int createTime=DateTime.now().millisecondsSinceEpoch;
+
+    await _db!.rawInsert(sqlShelfQuery, [
+    fid,
+    sid,
+    'filePath',
+    'title-$fid',
+    'pdf',
+    10,
+    jsonEncode(['tags-$fid']).toString(),
+    'description-$fid',
+    createTime,
+    createTime,
+    createTime]);
+    LoggerSingleton().logger.i("Created file -$fid");
   }
 }

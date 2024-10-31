@@ -33,7 +33,6 @@ class _HomescreenState extends State<Homescreen> {
             crossAxisCount: 4,
             children: [
               FilledButton(onPressed: (){
-                Persistance().createDummyData();
               }, child: Text("create folder")),
               ...shelf.shelfs.map((shelf)=>GestureDetector(
                 child: Draggable(child: Card(child: Text(shelf.title),shadowColor: Colors.red,),

@@ -14,7 +14,7 @@ class Shelf{
   //transient fields
   final List<Shelf> shelfs;
   final List<File> files;
-  final double? totalPages;
+  double? totalPages;
 
   Shelf({
       required this.id,
@@ -43,12 +43,13 @@ class Shelf{
         lastAccessed: now);
   }
 
-  Shelf addToShelf({required String shelfId,List<Shelf> shelfs=const [],List<File> files=const []}){
-    if(shelfs.isEmpty && files.isEmpty) throw Exception("both shelfs and files cannot be empty");
+  Shelf addToShelf({required String shelfId,List<Shelf> shelfs=const [],List<File> files=const [],double? totalPages}){
+    if(shelfs.isEmpty && files.isEmpty) return this;
     final Shelf? shelf=getShelf(shelfId: shelfId);
     if(shelf==null) throw Exception("Invalid shelf id");
     shelf.shelfs.addAll(shelfs);
     shelf.files.addAll(files);
+    shelf.totalPages=totalPages ?? shelf.totalPages;
     return this;
   }
 
@@ -81,7 +82,7 @@ class Shelf{
     }
     for(final shlf in shelf.shelfs){
       final reqShelf=_containShelf(shelf: shlf, shelfId: shelfId);
-      if(reqShelf!=null) return shelf;
+      if(reqShelf!=null) return reqShelf;
     }
     return null;
   }
