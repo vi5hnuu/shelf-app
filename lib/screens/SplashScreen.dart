@@ -17,46 +17,57 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   Timer? timer;
+  String? error;
 
   @override
   void initState() {
-    Persistance.initDB().then((_) => GoRouter.of(context).pushNamed(Routing.home.name));
+    timer=Timer(const Duration(seconds: 3),(){
+      if(Persistance().db==null) return;
+      goToHome();
+    });
+
+    Persistance.initDB().then((_){
+      if(timer!.isActive) return;
+      goToHome();
+    }).catchError((e){setState(()=>error=e.message);});
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.all(5),
-                child: LottieBuilder.asset(
-                  'assets/lottie/namaste.json',
-                  fit: BoxFit.fill,
+        body: Column(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 75,vertical: 125),
+              child: LottieBuilder.asset(
+                'assets/lottie/shelf.json',
+                fit: BoxFit.fitWidth,
+              ),
+            ),
+            Column(
+              children: [
+                Text(
+                  "Shelf",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontFamily: "PermanentMarker", fontSize: 32, color: Theme.of(context).primaryColor),
                 ),
-              ),
-              Column(
-                children: [
-                  Text(
-                    "Spiritual Shakti",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontFamily: "PermanentMarker", fontSize: 32, color: Theme.of(context).primaryColor),
-                  ),
-                  const SizedBox(height: 15),
-                  Text(
-                    "initializing...",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontFamily: "PermanentMarker", fontSize: 12, color: Theme.of(context).primaryColor),
-                  )
-                ],
-              ),
-            ],
-          ),
+                const SizedBox(height: 15),
+                Text(
+                  error ?? "Initializing...",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontFamily: "PermanentMarker", fontSize: 18, color: Theme.of(context).primaryColor.withOpacity(0.5)),
+                )
+              ],
+            ),
+          ],
         ));
+  }
+
+  goToHome(){
+    GoRouter.of(context).replaceNamed(Routing.home.name);
   }
 
   @override

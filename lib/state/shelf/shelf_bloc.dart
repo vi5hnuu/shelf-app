@@ -45,8 +45,9 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
             throw Exception("invalid item type");
           }
         }
-        final Shelf rootShelf=state.shelf.addToShelf(shelfId: event.shelfId ?? '0',files:files,shelfs: shelfs );
-
+        final Shelf rootShelf=state.shelf
+            .addToShelf(shelfId: event.shelfId ?? '0',files:files,shelfs: shelfs )
+            .copyWith(totalPages: itemsInShelf.totalPages);
         final invalidatedShelfs=isShelfInvalid ? (state._invalidatedShelfs..remove(event.shelfId)) : state._invalidatedShelfs;
         emit(state.copyWith(invalidatedShelfs: invalidatedShelfs,httpStates:state.httpStates.clone()..remove(Httpstates.ITEMS_IN_SHELF), shelf: rootShelf));
       } catch (e) {

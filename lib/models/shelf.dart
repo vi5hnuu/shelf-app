@@ -26,14 +26,14 @@ class Shelf{
       required this.createdAt,
       required this.updatedAt,
       required this.lastAccessed,
-      this.shelfs=const [],
-      this.files=const [],
+      List<Shelf>? shelfs,
+      List<File>? files,
       this.totalPages
-  });
+  }):shelfs= shelfs ?? List.empty(growable: true),files=files ?? List.empty(growable: true);
 
-  factory Shelf.rootShelf(){
+  factory Shelf.rootShelf({required String rootShelfId}){
     final now=DateTime.now().millisecondsSinceEpoch;
-    return Shelf(id: '0',
+    return Shelf(id: rootShelfId,
         title: 'root',
         description: 'non-existant shelf',
         coverImage: null,
@@ -50,6 +50,24 @@ class Shelf{
     shelf.shelfs.addAll(shelfs);
     shelf.files.addAll(files);
     return this;
+  }
+
+  Shelf copyWith({double? totalPages,
+    List<Shelf>? shelfs,
+    List<File>? files}){
+    return Shelf(
+        id: id,
+        parentShelfId:parentShelfId,
+        title: title,
+        description: description,
+        coverImage: coverImage,
+        active: active,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        files: files ?? this.files,
+        shelfs: shelfs ?? this.shelfs,
+        totalPages: totalPages ?? this.totalPages,
+        lastAccessed: lastAccessed);
   }
 
   Shelf? getShelf({required String shelfId}){//from this node to all down-wards node
@@ -80,10 +98,14 @@ class Shelf{
         updatedAt: shelfJson['updated_at'] as int,
         lastAccessed: shelfJson['last_accessed'] as int);
   }
+
+  bool hasItems() {
+    return shelfs.isNotEmpty || files.isNotEmpty;
+  }
 }
 
 class File {
-  final String shelfId;
+  final String? shelfId;
   final String filePath;
   final String title;
   final String type;
@@ -113,7 +135,7 @@ class File {
 
   static File  fromMap(Map<String, dynamic> fileJson) {
     return File(id: fileJson['id'] as String,
-        shelfId: fileJson['shelf_id'] as String,
+        shelfId: fileJson['shelf_id'] as String?,
         filePath: fileJson['file_path'] as String,
         title: fileJson['title'] as String,
         type: fileJson['type'] as String,
@@ -123,8 +145,8 @@ class File {
         description: fileJson['description'] as String,
         createdAt: fileJson['created_at'] as int,
         updatedAt: fileJson['updated_at'] as int,
-        lastAccessedAt: fileJson['last_accessed_at'] as int,
-        favourite: (fileJson['favourite'] as int)==1);
+        lastAccessedAt: fileJson['last_accessed'] as int,
+        favourite: (fileJson['favorite'] as int)==1);
   }
 }
 

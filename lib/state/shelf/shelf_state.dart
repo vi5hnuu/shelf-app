@@ -2,6 +2,7 @@ part of 'shelf_bloc.dart';
 
 @immutable
 class ShelfState extends Equatable with WithHttpState {
+  static const String ROOT_SHELF_ID="0";
   final Set<String?> _invalidatedShelfs;//NULL -> root, shelfId -> shelf
   final Shelf _shelf;
 
@@ -9,7 +10,7 @@ class ShelfState extends Equatable with WithHttpState {
     Shelf? shelf,
     Set<String?> invalidatedShelfs=const {},
     Map<String,HttpState>? httpStates,
-  }) : _shelf = shelf ?? Shelf.rootShelf(),_invalidatedShelfs=invalidatedShelfs{
+  }) : _shelf = shelf ?? Shelf.rootShelf(rootShelfId: ROOT_SHELF_ID),_invalidatedShelfs=invalidatedShelfs{
     this.httpStates.addAll(httpStates ?? {});
   }
 
@@ -32,7 +33,7 @@ class ShelfState extends Equatable with WithHttpState {
   }
 
   Shelf clearShelf({required String? shelfId}){
-    if(shelfId==null) return Shelf.rootShelf();
+    if(shelfId==null) return Shelf.rootShelf(rootShelfId: ROOT_SHELF_ID);
 
     final reqShelf=_shelf.getShelf(shelfId: shelfId);
     if(reqShelf==null) throw Exception("Invalid shelfId");
@@ -52,18 +53,18 @@ class ShelfState extends Equatable with WithHttpState {
   }
 
   canLoadPage({String? shelfId,required int pageNo}){
-    if(isLoading(forr: Httpstates.ITEMS_IN_SHELF)) return false;
+    if((_invalidatedShelfs.contains(shelfId) && pageNo!=1) || isLoading(forr: Httpstates.ITEMS_IN_SHELF)) return false;
 
     final Shelf? reqShelf= shelfId==null ? _shelf :  _shelf.getShelf(shelfId: shelfId);
     if(reqShelf==null) throw Exception("Invalid shelf id");
-    if(reqShelf.totalPages==null) throw Exception("Total pages not initialized");
+    if(pageNo!=1 && reqShelf.totalPages==null) throw Exception("Total pages not initialized");
 
     /*
     if loaded pages is not perfect int means no more pages
     else we check if tobefetchedpage is more then last fetched page
     * */
     final double loadedPages=(reqShelf.files.length+reqShelf.shelfs.length)/Constants.DEFAULT_PAGE_SIZE;
-    return (loadedPages.ceil()-loadedPages.floor())==0 && pageNo<=reqShelf.totalPages!.ceil() && loadedPages+1==pageNo;
+    return (loadedPages.ceil()-loadedPages.floor())==0 && (pageNo==1 || pageNo<=reqShelf.totalPages!.ceil()) && loadedPages+1==pageNo;
   }
 
 

@@ -37,8 +37,8 @@ class Persistance{
   //size in bytes
   static const String _fileTableCreateQuery='''
         CREATE TABLE $_tableFile (
-          id INTEGER PRIMARY KEY,
-          shelf_id INTEGER NOT NULL,
+          id TEXT PRIMARY KEY,
+          shelf_id TEXT,
           file_path TEXT NOT NULL,
           title TEXT,
           type TEXT,
@@ -48,14 +48,14 @@ class Persistance{
           description TEXT DEFAULT "",
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL,
-          last_accessed INTEGER NOT NULL
+          last_accessed INTEGER NOT NULL,
           favorite INTEGER DEFAULT 0,
           FOREIGN KEY (shelf_id) REFERENCES $_tableShelf(id) ON DELETE CASCADE
         )
       ''';
 
   static Timer? _timer;
-  static bool initiated=false;
+  static bool _initiated=false;
 
   static final Persistance _instance = Persistance._();
 
@@ -66,26 +66,34 @@ class Persistance{
   }
 
   static Future<void> initDB() async{
-    if(initiated) throw Exception("do not re-initiate persistance");
-    initiated=true;
+    try{
+      if(_initiated) throw Exception("do not re-initiate persistance");
+      _initiated=true;
 
-    _timer=Timer.periodic(const Duration(seconds: 30), (timer) => _deleteOldInactiveItems());
-    _db = await openDatabase(_dbName,
-        singleInstance: true,
-        version: 1,
-        onConfigure: (db) async{
-          await db.execute('PRAGMA foreign_keys = ON');
-          LoggerSingleton().logger.i("Foreign key enabled");
-        },
-        onOpen: (db) => LoggerSingleton().logger.i("database created : ${db.path}"),
-        onCreate: (db, version)  async {
+      _timer=Timer.periodic(const Duration(seconds: 30), (timer) => _deleteOldInactiveItems());
+      _db = await openDatabase(_dbName,
+          singleInstance: true,
+          version: 1,
+          onConfigure: (db) async{
+            await db.execute('PRAGMA foreign_keys = ON');
+            LoggerSingleton().logger.i("Foreign key enabled");
+          },
+          onOpen: (db) => LoggerSingleton().logger.i("database created : ${db.path}"),
+          onCreate: (db, version)  async {
             await db.execute(_shelfTableCreateQuery);
             LoggerSingleton().logger.i("Table $_tableShelf created");
             await db.execute(_fileTableCreateQuery);
             LoggerSingleton().logger.i("Table $_tableFile created");
-    });
+          });
+    }catch(e){
+      throw Exception("Intiation failed, please try again");
+    }
   }
-  
+
+  get db{
+    return _db;
+  }
+
   createShelf({
     String? parentShelfId,
     required String title,
@@ -115,7 +123,7 @@ class Persistance{
   }
 
   createFile({
-    required String shelfId,
+    required String? shelfId,
     required String filePath,
     required String title,
     required String type,
@@ -127,19 +135,19 @@ class Persistance{
 
     String sqlShelfQuery = '''
     INSERT INTO $_tableFile (id,shelf_id,file_path,title,type,size,tags,description,created_at,updated_at,last_accessed)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ''';
-    final fileId=IdGenerators.generateId(prefix: Constants.SHELF_ID_PREFIX);
-    final createTime=DateTime.now().millisecondsSinceEpoch;
+    final String fileId=IdGenerators.generateId(prefix: Constants.SHELF_ID_PREFIX);
+    final int createTime=DateTime.now().millisecondsSinceEpoch;
 
-    await _db!.execute(sqlShelfQuery, [
+    await _db!.rawInsert(sqlShelfQuery, [
           fileId,
           shelfId,
           filePath,
           title,
           type,
           size,
-          jsonEncode(tags),
+          jsonEncode(tags).toString(),
           description,
           createTime,
           createTime,
@@ -150,18 +158,16 @@ class Persistance{
 
   Future<int> _getTotalShelfs({String? parentShelfId}) async{
     assert(_db!=null);
-    final List<Map<String, dynamic>> countResult = await _db!.query(
-      'SELECT COUNT(*) as total FROM $_tableShelf WHERE ${parentShelfId != null ? 'parent_shelf_id = ?' : 'parent_shelf_id IS NULL'}',
-      whereArgs: parentShelfId != null ? [parentShelfId] : [],
-    );
+    final List<Map<String, dynamic>> countResult = await _db!.rawQuery(
+      'SELECT COUNT(*) as total FROM $_tableShelf WHERE ${parentShelfId != null ? 'parent_shelf_id = `?`' : 'parent_shelf_id IS ?'}',[parentShelfId]);
     return countResult.isNotEmpty ? countResult.first['total'] as int : 0;
   }
 
   Future<int> _getTotalFileInShelf({required String? shelfId}) async{
     assert(_db!=null);
-    final List<Map<String, dynamic>> countResult = await _db!.query(
-      'SELECT COUNT(*) as total FROM $_tableFile',
-      where: shelfId==null ? 'shelf_id is NULL' : 'shelf_id=$shelfId'
+    final List<Map<String, dynamic>> countResult = await _db!.rawQuery(
+      'SELECT COUNT(*) as total FROM $_tableFile WHERE ${shelfId!=null ? 'shelf_id=?':'shelf_id IS ?'}',
+      [shelfId]
     );
     return countResult.isNotEmpty ? countResult.first['total'] as int : 0;
   }
@@ -171,8 +177,8 @@ class Persistance{
 
     final List<Map<String, dynamic>> shelfsRaw = await _db!.query(
         _tableShelf,
-        where: parentShelfId!=null ? 'parent_shelf_id = ?':'parent_shelf_id is NULL',
-        whereArgs: parentShelfId!=null ? [parentShelfId]:[],
+        where: parentShelfId!=null ? 'parent_shelf_id = ?':'parent_shelf_id IS ?',
+        whereArgs: [parentShelfId],
         limit: limit,
         offset: offset,
         orderBy: 'created_at ASC'
@@ -249,11 +255,16 @@ class Persistance{
     ''', [fileIds.join(',')]);
   }
 
-  static Future<int> _deleteOldInactiveItems() async {//delete inactive items older than 1 month
+  static void _deleteOldInactiveItems() async {//delete inactive items older than 1 month
+    return;
+    if(_db==null){
+      LoggerSingleton().logger.w("Db not initialized, skipping [_deleteOldInactiveItems()]");
+      return;
+    }
     final int oneMonthAgo = DateTime.now().subtract(const Duration(days: 30)).millisecondsSinceEpoch;
 
     // Query to delete items where active = false and created_at is more than 30 days old
-    return await _db!.rawDelete('''
+    await _db!.rawDelete('''
       DELETE FROM $_tableFile
       WHERE active=? AND updated_at < ?
     ''',[0,oneMonthAgo]);
@@ -279,7 +290,7 @@ class Persistance{
     //we return shelfs first then files
     final List<Shelf> shelfs=await getShelfsFromOffset(parentShelfId: shelfId,offset: (pageNo-1)*limit, limit: limit);
     if(shelfs.length==limit){
-        return Pageable(data: shelfs, pageNo: pageNo, totalPages: totalPages);
+        return Pageable<Object>(data: shelfs, pageNo: pageNo, totalPages: totalPages);
     }
 
     final leftItems=limit-shelfs.length;
@@ -291,9 +302,9 @@ class Persistance{
     //we should not use (curItems/limit) as it can be like  2.33333 etc which gives wrong skip
     // final int skipItems=((pageNo-onlyShelfPages-1)*limit).toInt();
     final int skipItems=(pageNo*limit-totalShelfs-limit).toInt();
-    final files=await getFilesFromOffset(offset: skipItems>=0 ? skipItems : 0, limit: leftItems);
+    final List<File> files=await getFilesFromOffset(offset: skipItems>=0 ? skipItems : 0, limit: leftItems);
 
-    return Pageable(data: [...shelfs,...files], pageNo: pageNo, totalPages: totalPages);
+    return Pageable<Object>(data: [...shelfs,...files], pageNo: pageNo, totalPages: totalPages);
   }
 
   Future<int> moveItemsTo({required String? toShelfId,required List<String> fileIds,required List<String> shelfIds}) async{
@@ -320,5 +331,14 @@ class Persistance{
   void dispose()async{
     await _db?.close();
     _timer?.cancel();
+  }
+
+  void createDummyData()async {
+    for(int i=0;i<30;i++){
+      await createShelf(title: 'shelf-${i+1}',parentShelfId: null,description: 'description-${i+1}');
+    }
+    for(int i=0;i<30;i++){
+      await createFile(title: 'file-${i+1}',shelfId: null,description: 'description-${i+1}',filePath: 'svds',type: 'pdf',size: 10,tags: ['tag-1']);
+    }
   }
 }

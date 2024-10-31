@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shelf/routing/routes.dart';
+import 'package:shelf/screens/FileManagerScreen.dart';
 import 'package:shelf/screens/HomeScreen.dart';
 import 'package:shelf/screens/SplashScreen.dart';
 import 'package:shelf/singletons/NotificationService.dart';
-import 'package:shelf/singletons/persistance.dart';
 import 'package:shelf/state/shelf/shelf_bloc.dart';
 
 final parentNavKey=GlobalKey<NavigatorState>();
@@ -47,7 +47,7 @@ class _ShelfAppState extends State<ShelfApp> with WidgetsBindingObserver {
           path: Routing.home.path,
           pageBuilder: (context, state) => CustomTransitionPage<void>(
             key: state.pageKey,
-            child: const Homescreen(),
+            child: const FileManagerScreen(shelfId: null),
             transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
           ),
         ),
@@ -71,7 +71,7 @@ class _ShelfAppState extends State<ShelfApp> with WidgetsBindingObserver {
         title: 'Spirtual Shakti',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          colorScheme: const ColorScheme.highContrastLight(primary: Color.fromRGBO(165, 62, 72, 1)),
+          colorScheme: const ColorScheme.highContrastLight(primary: Colors.teal),
           useMaterial3: true,
         ),
         routerConfig: router,

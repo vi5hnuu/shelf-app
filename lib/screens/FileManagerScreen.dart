@@ -1,0 +1,140 @@
+import 'package:flutter/animation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:shelf/state/httpStates.dart';
+import 'package:shelf/state/shelf/shelf_bloc.dart';
+import 'package:shelf/widgets/RetryAgain.dart';
+
+class FileManagerScreen extends StatefulWidget {
+  final String? shelfId;
+
+  const FileManagerScreen({super.key,required this.shelfId});
+
+  @override
+  State<FileManagerScreen> createState() => _FileManagerScreenState();
+}
+
+class _FileManagerScreenState extends State<FileManagerScreen> {
+  final ScrollController _scrollController = ScrollController();
+  late final ShelfBloc _shelfBloc;
+  int pageNo = 1;
+  
+  @override
+  void initState() {
+    _shelfBloc=BlocProvider.of<ShelfBloc>(context);
+    loadCurrentPage();
+    _scrollController.addListener(_loadNextPage);
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+        return Scaffold(
+            appBar: AppBar(
+              title: Text(
+                "Shelf - ${widget.shelfId ?? 'ROOT'}",
+                style: const TextStyle(color: Colors.white, fontFamily: "Kalam", fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: Theme.of(context).primaryColor,
+              iconTheme: const IconThemeData(color: Colors.white),
+            ),
+            floatingActionButton: IconButton(icon: Icon(Icons.add),onPressed: () {
+              showModalBottomSheet(
+                enableDrag: true,
+                context: context,
+                showDragHandle: true,
+                isDismissible: true,
+                sheetAnimationStyle: AnimationStyle(
+                  duration: Duration(milliseconds: 500),
+                  curve: Curves.bounceIn,
+                  reverseDuration: Duration(milliseconds: 300),
+                  reverseCurve: Curves.elasticInOut),
+                elevation: 1,
+                useSafeArea: true,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                builder: (context) {
+                  return Container(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    width: double.infinity,
+                    height: 100,
+                    child: Text("data"),
+                  );
+                });
+          },),
+            body: BlocConsumer<ShelfBloc, ShelfState>(
+    listener: (context, state) {},
+    buildWhen: (previous, current) => previous != current,
+    listenWhen: (previous, current) => previous != current,
+    builder: (context, state) {
+      final totalItems=state.shelf.shelfs.length+state.shelf.files.length;
+      final shelf=state.shelf.getShelf(shelfId: widget.shelfId ?? ShelfState.ROOT_SHELF_ID);
+      return Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+                mainAxisSize: MainAxisSize.max,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if(shelf!=null && shelf.hasItems()) Expanded(
+                    child: GridView.builder(
+                      controller: _scrollController,
+                      shrinkWrap: true,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4,crossAxisSpacing: 10,mainAxisSpacing: 10),
+                      itemCount: totalItems,
+                      itemBuilder: (context, index) {
+                        if(index<state.shelf.shelfs.length){
+                          final shelf=state.shelf.shelfs[index];
+                          return GestureDetector(
+                            child: Card(child: Text(shelf.title),shadowColor: Colors.red,),
+                          );
+                        }else{
+                          final file=state.shelf.files[index-state.shelf.shelfs.length];
+                          return GestureDetector(
+                            child: Card(child: Text(file.title),shadowColor: Colors.green,),
+                          );
+                        }
+                      }
+                    ),
+                  ),
+                  Container(
+                    decoration: const BoxDecoration(color: Colors.white),
+                    child: (state.isLoading(forr: Httpstates.ITEMS_IN_SHELF))
+                        ? Padding(padding: const EdgeInsets.symmetric(vertical: 20),child: SpinKitThreeBounce(color: Theme.of(context).primaryColor, size: 24))
+                        : ((state.isError(forr: Httpstates.ITEMS_IN_SHELF))
+                            ? RetryAgain(
+                                onRetry: loadCurrentPage,
+                                error: state
+                                    .getError(forr: Httpstates.ITEMS_IN_SHELF)!)
+                            : null),
+                  )
+                ],
+              ),
+      );}));
+  }
+
+  loadCurrentPage(){
+    _loadPage(pageNo: pageNo);
+  }
+
+  void _loadPage({required int pageNo}) {
+    _shelfBloc.add(FetchItemsInShelf(shelfId: widget.shelfId,pageNo: pageNo));
+  }
+
+  void _loadNextPage() {
+    double maxScrollExtent = _scrollController.position.maxScrollExtent;
+    double currentScrollPosition = _scrollController.position.pixels;
+    // Calculate the scroll percentage
+    double scrollPercentage = currentScrollPosition / maxScrollExtent;
+    // Check if scroll percentage is greater than or equal to 80%
+    if (scrollPercentage <= 0.8) return;
+    final canLoadNextPage = _shelfBloc.state.canLoadPage(pageNo: pageNo+1,shelfId: widget.shelfId);
+    if(canLoadNextPage) setState(() => _loadPage(pageNo: ++pageNo));
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_loadNextPage);
+    _scrollController.dispose();
+    super.dispose();
+  }
+}

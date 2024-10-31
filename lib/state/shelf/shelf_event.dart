@@ -11,6 +11,14 @@ class FetchItemsInShelf extends ShelfEvent{
   const FetchItemsInShelf({required this.shelfId,required this.pageNo});
 }
 
+// class CreateShelf extends ShelfEvent{
+//   const CreateShelf({});
+// }
+//
+// class CreateFile extends ShelfEvent{
+//   const CreateShelf({});
+// }
+
 class MoveItemsTo extends ShelfEvent{
   final String? toShelfId;
   final String parentShelfId;//the shelf in which fileIds and shelfIds exists
