@@ -34,8 +34,8 @@ class Shelf{
   factory Shelf.rootShelf({required String rootShelfId}){
     final now=DateTime.now().millisecondsSinceEpoch;
     return Shelf(id: rootShelfId,
-        title: 'root',
-        description: 'non-existant shelf',
+        title: '',
+        description: 'Root Shelf',
         coverImage: null,
         active: true,
         createdAt: now,
@@ -71,19 +71,27 @@ class Shelf{
         lastAccessed: lastAccessed);
   }
 
-  Shelf? getShelf({required String shelfId}){//from this node to all down-wards node
-    return _containShelf(shelf: this, shelfId: shelfId);
+  Shelf? getShelf({required String shelfId,List<Shelf>? path}){//from this node to all down-wards node
+    return getShelfFrom(shelf: this, shelfId: shelfId,path: path);
   }
 
-  Shelf? _containShelf({required Shelf shelf,required String shelfId}){
-    if(shelf.id==shelfId) return shelf;
-    for(final shlf in shelf.shelfs){
-      if(shlf.id==shelfId) return shlf;
+  Shelf? getShelfFrom({required Shelf shelf,required String shelfId,List<Shelf>? path}){//return shelf if found and path if path ref is passed
+    path?.add(shelf);
+    if(shelf.id==shelfId) {
+      return shelf;
     }
+
     for(final shlf in shelf.shelfs){
-      final reqShelf=_containShelf(shelf: shlf, shelfId: shelfId);
+      if(shlf.id!=shelfId) continue;
+      path?.add(shlf);
+      return shlf;
+    }
+
+    for(final shlf in shelf.shelfs){
+      final reqShelf=getShelfFrom(shelf: shlf, shelfId: shelfId,path: path);
       if(reqShelf!=null) return reqShelf;
     }
+    path?.removeLast();
     return null;
   }
 

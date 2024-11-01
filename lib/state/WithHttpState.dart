@@ -43,6 +43,13 @@ mixin WithHttpState{
     return httpStates[forr]!=null;
   }
 
+  bool hasAnyHttpState({required final List<String> forr}){
+    for(final key in forr){
+      if(httpStates.containsKey(key)) return true;
+    }
+    return false;
+  }
+
   printStates(){
     for(final kv in httpStates.entries){
       print("http state ${kv.key} --> ${kv.value.error}/${kv.value.loading}");

@@ -11,13 +11,26 @@ class FetchItemsInShelf extends ShelfEvent{
   const FetchItemsInShelf({required this.shelfId,required this.pageNo});
 }
 
-// class CreateShelf extends ShelfEvent{
-//   const CreateShelf({});
-// }
-//
-// class CreateFile extends ShelfEvent{
-//   const CreateShelf({});
-// }
+class CreateShelfIn extends ShelfEvent{
+  final String? shelfId;
+
+  const CreateShelfIn({this.shelfId});
+}
+
+class CreateFileItem{
+  final PlatformFile file;
+  final List<String> tags;
+
+  const CreateFileItem({
+    required this.file,
+    this.tags = const []});
+}
+
+class SaveFilesInShelf extends ShelfEvent{
+  final String? shelfId;
+  final List<CreateFileItem> files;
+  const SaveFilesInShelf({required this.shelfId,required this.files});
+}
 
 class MoveItemsTo extends ShelfEvent{
   final String? toShelfId;

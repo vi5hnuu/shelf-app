@@ -53,7 +53,8 @@ class ShelfState extends Equatable with WithHttpState {
   }
 
   canLoadPage({String? shelfId,required int pageNo}){
-    if((_invalidatedShelfs.contains(shelfId) && pageNo!=1) || isLoading(forr: Httpstates.ITEMS_IN_SHELF)) return false;
+    var invalidShelf=_invalidatedShelfs.contains(shelfId);
+    if((invalidShelf && pageNo!=1) || isLoading(forr: Httpstates.ITEMS_IN_SHELF)) return false;
 
     final Shelf? reqShelf= shelfId==null ? _shelf :  _shelf.getShelf(shelfId: shelfId);
     if(reqShelf==null) throw Exception("Invalid shelf id");
@@ -64,7 +65,7 @@ class ShelfState extends Equatable with WithHttpState {
     else we check if tobefetchedpage is more then last fetched page
     * */
     final double loadedPages=(reqShelf.files.length+reqShelf.shelfs.length)/Constants.DEFAULT_PAGE_SIZE;
-    return (loadedPages.ceil()-loadedPages.floor())==0 && (pageNo==1 || pageNo<=reqShelf.totalPages!.ceil()) && loadedPages+1==pageNo;
+    return (invalidShelf && pageNo==1) || ((pageNo==1 || pageNo<=reqShelf.totalPages!.ceil()) && loadedPages+1==pageNo);
   }
 
 

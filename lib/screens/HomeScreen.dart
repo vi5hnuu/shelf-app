@@ -2,7 +2,7 @@ import 'dart:ffi';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shelf/singletons/persistance.dart';
+import 'package:shelf/singletons/persistance/persistance.dart';
 import 'package:shelf/state/shelf/shelf_bloc.dart';
 
 class Homescreen extends StatefulWidget {

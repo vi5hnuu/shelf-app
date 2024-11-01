@@ -6,6 +6,7 @@ import 'package:shelf/constants/constants.dart';
 import 'package:shelf/models/Pageable.dart';
 import 'package:shelf/models/shelf.dart';
 import 'package:shelf/singletons/LoggerSingleton.dart';
+import 'package:shelf/singletons/persistance/model/create-file.dart';
 import 'package:sqflite/sqflite.dart';
 
 class Persistance{
@@ -139,20 +140,50 @@ class Persistance{
   ''';
     final String fileId=IdGenerators.generateId(prefix: Constants.SHELF_ID_PREFIX);
     final int createTime=DateTime.now().millisecondsSinceEpoch;
-
-    await _db!.rawInsert(sqlShelfQuery, [
-          fileId,
-          shelfId,
-          filePath,
-          title,
-          type,
-          size,
-          jsonEncode(tags).toString(),
-          description,
-          createTime,
-          createTime,
-          createTime]);
+    await _db!.transaction((txn) {
+      return txn.rawInsert(sqlShelfQuery, [
+        fileId,
+        shelfId,
+        filePath,
+        title,
+        type,
+        size,
+        jsonEncode(tags).toString(),
+        description,
+        createTime,
+        createTime,
+        createTime]);
+    },exclusive: false);
     LoggerSingleton().logger.i("Created file $title : $fileId");
+  }
+
+  createFiles({required List<CreateFile> files}) async{
+    assert(_db!=null);
+
+    String sqlShelfQuery = '''
+    INSERT INTO $_tableFile (id,shelf_id,file_path,title,type,size,tags,description,created_at,updated_at,last_accessed)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ''';
+
+    Batch batch = db.batch();
+    final int createTime=DateTime.now().millisecondsSinceEpoch;
+    for (var file in files) {
+      final String fileId=IdGenerators.generateId(prefix: Constants.SHELF_ID_PREFIX);
+      batch.rawInsert(sqlShelfQuery,[
+        fileId,
+        file.shelfId,
+        file.filePath,
+        file.title,
+        file.type,
+        file.size,
+        jsonEncode(file.tags).toString(),
+        file.description,
+        createTime,
+        createTime,
+        createTime]);
+    }
+    await batch.commit(noResult: true);
+    LoggerSingleton().logger.i("Created total files ${files.length}");
   }
 
 

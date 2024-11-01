@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shelf/routing/routes.dart';
-import 'package:shelf/singletons/persistance.dart';
+import 'package:shelf/singletons/persistance/persistance.dart';
 
 class SplashScreen extends StatefulWidget {
   final String title;
