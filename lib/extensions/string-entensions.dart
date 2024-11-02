@@ -4,4 +4,8 @@ extension StringUtils on String {
     if(isEmpty) return this;
     return split(" ").map((word)=>word.isEmpty ? word : word[0].toUpperCase()+word.substring(1)).join(" ");
   }
+
+  bool get isBlank{
+    return trim().isEmpty;
+  }
 }

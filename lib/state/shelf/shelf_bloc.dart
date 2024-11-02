@@ -52,7 +52,7 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
             throw Exception("invalid item type");
           }
         }
-        final Shelf rootShelf=state.shelf
+        final Shelf rootShelf=state.rootShelf
             .addToShelf(shelfId: event.shelfId ?? ShelfState.ROOT_SHELF_ID,files:files,shelfs: shelfs,totalPages: itemsInShelf.totalPages);
         final invalidatedShelfs=isShelfInvalid ? (state._invalidatedShelfs.clone()..remove(event.shelfId)) : state._invalidatedShelfs.clone();
         emit(state.copyWith(invalidatedShelfs: invalidatedShelfs,httpStates:state.httpStates.clone()..remove(Httpstates.ITEMS_IN_SHELF), shelf: rootShelf));
@@ -87,6 +87,20 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
         emit(state.copyWith(httpStates:state.httpStates.clone()..remove(Httpstates.SAVING_FILES_IN_SHELF), invalidatedShelfs: state._invalidatedShelfs.clone()..add(event.shelfId)));
       } catch (e) {
         emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.SAVING_FILES_IN_SHELF, HttpState.error(error: e.toString()))));
+      }
+    });
+    on<CreateShelfIn>((event,emit)async{
+      emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.CREATE_SHELF,const HttpState.loading())));
+      try {
+        //same file save twice -> single entry in app_dir but 2 entry in db [take care while deleting]
+        await _persistance.createShelf(parentShelfId: event.shelfId,
+          title: event.title,description: event.description,coverImage: event.coverImage,tags: event.tags);
+
+        //TODO::remove this test line
+        await Future.delayed(Duration(seconds: 3));
+        emit(state.copyWith(httpStates:state.httpStates.clone()..put(Httpstates.CREATE_SHELF,const HttpState.done()), invalidatedShelfs: state._invalidatedShelfs.clone()..add(event.shelfId)));
+      } catch (e) {
+        emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.CREATE_SHELF, HttpState.error(error: e.toString()))));
       }
     });
   }
@@ -128,6 +142,8 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
       add(FetchItemsInShelf(shelfId: parentShelfId, pageNo: 1));
     }else if(transition.event is SaveFilesInShelf && !transition.nextState.hasHttpState(forr: Httpstates.SAVING_FILES_IN_SHELF)){
       add(FetchItemsInShelf(shelfId: (transition.event as SaveFilesInShelf).shelfId, pageNo: 1));
+    }else if(transition.event is CreateShelfIn && transition.nextState.isDone(forr: Httpstates.CREATE_SHELF)){
+      add(FetchItemsInShelf(shelfId: (transition.event as CreateShelfIn).shelfId, pageNo: 1));
     }
   }
 

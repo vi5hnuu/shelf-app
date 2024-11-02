@@ -7,6 +7,10 @@ mixin WithHttpState{
     return httpStates.containsKey(forr) && httpStates[forr]!.loading;
   }
 
+  bool isDone({required final String forr}){
+    return httpStates[forr]?.done==true;
+  }
+
   bool anyLoading({List<String> forr=const []}){
     if(forr.isEmpty) forr=httpStates.keys.toList();
     for(final key in forr){

@@ -4,13 +4,13 @@ part of 'shelf_bloc.dart';
 class ShelfState extends Equatable with WithHttpState {
   static const String ROOT_SHELF_ID="0";
   final Set<String?> _invalidatedShelfs;//NULL -> root, shelfId -> shelf
-  final Shelf _shelf;
+  final Shelf _rootShelf;
 
   ShelfState({
     Shelf? shelf,
     Set<String?> invalidatedShelfs=const {},
     Map<String,HttpState>? httpStates,
-  }) : _shelf = shelf ?? Shelf.rootShelf(rootShelfId: ROOT_SHELF_ID),_invalidatedShelfs=invalidatedShelfs{
+  }) : _rootShelf = shelf ?? Shelf.rootShelf(rootShelfId: ROOT_SHELF_ID),_invalidatedShelfs=invalidatedShelfs{
     this.httpStates.addAll(httpStates ?? {});
   }
 
@@ -22,20 +22,20 @@ class ShelfState extends Equatable with WithHttpState {
     return ShelfState(
       invalidatedShelfs: invalidatedShelfs ?? _invalidatedShelfs,
       httpStates: httpStates ?? this.httpStates,
-      shelf: shelf ?? _shelf
+      shelf: shelf ?? _rootShelf
     );
   }
 
   factory ShelfState.initial() => ShelfState();
 
-  Shelf get shelf{
-    return _shelf;
+  Shelf get rootShelf{
+    return _rootShelf;
   }
 
   Shelf clearShelf({required String? shelfId}){
     if(shelfId==null) return Shelf.rootShelf(rootShelfId: ROOT_SHELF_ID);
 
-    final reqShelf=_shelf.getShelf(shelfId: shelfId);
+    final reqShelf=_rootShelf.getShelf(shelfId: shelfId);
     if(reqShelf==null) throw Exception("Invalid shelfId");
     return reqShelf
       ..files.clear()
@@ -47,7 +47,7 @@ class ShelfState extends Equatable with WithHttpState {
   }
 
   hasPage({String? shelfId,required int pageNo}){
-    final Shelf? reqShelf= shelfId==null ? _shelf :  _shelf.getShelf(shelfId: shelfId);
+    final Shelf? reqShelf= shelfId==null ? _rootShelf :  _rootShelf.getShelf(shelfId: shelfId);
     if(reqShelf==null) throw Exception("Invalid shelf id");
     return (reqShelf.shelfs.length+reqShelf.files.length)/Constants.DEFAULT_PAGE_SIZE>=pageNo;
   }
@@ -56,7 +56,7 @@ class ShelfState extends Equatable with WithHttpState {
     var invalidShelf=_invalidatedShelfs.contains(shelfId);
     if((invalidShelf && pageNo!=1) || isLoading(forr: Httpstates.ITEMS_IN_SHELF)) return false;
 
-    final Shelf? reqShelf= shelfId==null ? _shelf :  _shelf.getShelf(shelfId: shelfId);
+    final Shelf? reqShelf= shelfId==null ? _rootShelf :  _rootShelf.getShelf(shelfId: shelfId);
     if(reqShelf==null) throw Exception("Invalid shelf id");
     if(pageNo!=1 && reqShelf.totalPages==null) throw Exception("Total pages not initialized");
 
@@ -71,5 +71,5 @@ class ShelfState extends Equatable with WithHttpState {
 
 
   @override
-  List<Object?> get props => [httpStates, _shelf];
+  List<Object?> get props => [httpStates, _rootShelf];
 }

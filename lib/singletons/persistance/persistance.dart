@@ -223,7 +223,8 @@ class Persistance{
 
     final List<Map<String, dynamic>> filesRaw = await _db!.query(
         _tableFile,
-        where: shelfId!=null ? 'shelf_id = $shelfId' : 'shelf_id IS NULL',
+        where: shelfId!=null ? 'shelf_id = ?' : 'shelf_id IS ?',
+        whereArgs: [shelfId],
         limit: limit,
         offset: offset,
         orderBy: 'created_at ASC'
@@ -333,7 +334,7 @@ class Persistance{
     //we should not use (curItems/limit) as it can be like  2.33333 etc which gives wrong skip
     // final int skipItems=((pageNo-onlyShelfPages-1)*limit).toInt();
     final int skipItems=(pageNo*limit-totalShelfs-limit).toInt();
-    final List<File> files=await getFilesFromOffset(offset: skipItems>=0 ? skipItems : 0, limit: leftItems);
+    final List<File> files=await getFilesFromOffset(shelfId: shelfId,offset: skipItems>=0 ? skipItems : 0, limit: leftItems);
 
     return Pageable<Object>(data: [...shelfs,...files], pageNo: pageNo, totalPages: totalPages);
   }

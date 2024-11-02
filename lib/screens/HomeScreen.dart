@@ -28,7 +28,7 @@ class _HomescreenState extends State<Homescreen> {
         buildWhen: (previous, current) => previous != current,
         listenWhen: (previous, current) => previous != current,
         builder: (context, state) {
-          final shelf=state.shelf;
+          final shelf=state.rootShelf;
           return GridView.count(
             crossAxisCount: 4,
             children: [

@@ -17,6 +17,7 @@ import 'package:shelf/singletons/NotificationService.dart';
 import 'package:shelf/singletons/persistance/persistance.dart';
 import 'package:shelf/state/httpStates.dart';
 import 'package:shelf/state/shelf/shelf_bloc.dart';
+import 'package:shelf/widgets/CreateShelfDialog.dart';
 import 'package:shelf/widgets/FileView.dart';
 import 'package:shelf/widgets/PathView.dart';
 import 'package:shelf/widgets/RetryAgain.dart';
@@ -30,12 +31,12 @@ class FileManagerScreen extends StatefulWidget {
 }
 
 class _FileManagerScreenState extends State<FileManagerScreen> {
-  late final GoRouter router=GoRouter.of(context);
+  late final GoRouter _router=GoRouter.of(context);
   final List<String> _shelfPaths=[];//path to current shelf
   final ScrollController _scrollController = ScrollController();
   late final ShelfBloc _shelfBloc;
   int pageNo = 1;
-  
+
   @override
   void initState() {
     _shelfBloc=BlocProvider.of<ShelfBloc>(context);
@@ -43,13 +44,15 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     _scrollController.addListener(_loadNextPage);
     super.initState();
   }
-  
-  get shelfId{
+
+  String? get shelfId{
     return (_shelfPaths.isNotEmpty ? _shelfPaths.last : null);
   }
 
   @override
   Widget build(BuildContext context) {
+    final _router=GoRouter.of(context);
+
         return PopScope(
           onPopInvokedWithResult: (didPop, result) {
               setState(()=>_loadPage(shelfId: (_shelfPaths..removeLast()).lastOrNull,pageNo: 1));
@@ -61,7 +64,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
               listenWhen: (previous, current) => previous != current,
               builder: (context, state) {
                 final List<Shelf> paths=[];
-                final shelf=state.shelf.getShelf(shelfId: shelfId ?? ShelfState.ROOT_SHELF_ID,path: paths)!;
+                final shelf=state.rootShelf.getShelf(shelfId: shelfId ?? ShelfState.ROOT_SHELF_ID,path: paths)!;
                 final totalItems=(shelf.shelfs.length+shelf.files.length);
                 return Scaffold(
               appBar: AppBar(
@@ -84,11 +87,13 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                   mainAxisSize: MainAxisSize.max,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if(state.isLoading(forr: Httpstates.SAVING_FILES_IN_SHELF)) Text("saving files please wait"),
                     PathView(onPathClick: (sid) {
                       _goToShelf(sid);
                     },paths: paths),
-                    if(shelf.hasItems()) Expanded(
+                    const SizedBox(height: 12,),
+                    if(state.isLoading(forr: Httpstates.SAVING_FILES_IN_SHELF))
+                      const SpinKitThreeBounce(color: Colors.green,size: 24)
+                    else if(shelf.hasItems()) Expanded(
                       child: GridView.builder(
                         controller: _scrollController,
                         shrinkWrap: true,
@@ -103,18 +108,19 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                             final nestedShelf=shelf.shelfs[index];
                             return GestureDetector(
                               onDoubleTap: ()=>_goToShelf(nestedShelf.id),
-                              child: Shelfview(svgPath: "assets/svg/shelf.svg"),
+                              child: ShelfView(svgPath: "assets/svg/shelf.svg",title: nestedShelf.title,),
                             );
                           }else{
                             final file=shelf.files[index-shelf.shelfs.length];
                             return GestureDetector(
                               onTap: () => _openFile(file: file),
-                              child: FileView(svgPath: Constants.getFileSvgPath(SupportedFileType.toEnum(file.type))),
+                              child: FileView(svgPath: Constants.getFileSvgPath(SupportedFileType.toEnum(file.type)),title: file.title),
                             );
                           }
                         }
                       ),
-                    ),
+                    )
+                    else if(!state.isLoading(forr: Httpstates.ITEMS_IN_SHELF) && !shelf.hasItems()) const Text("Create shelf/ Add files ⭐📚",textAlign: TextAlign.center,style: TextStyle(fontSize: 24,fontWeight: FontWeight.bold)),
                     Container(
                       decoration: const BoxDecoration(color: Colors.white),
                       child: (state.isLoading(forr: Httpstates.ITEMS_IN_SHELF))
@@ -153,41 +159,8 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
           height: 200,
           child: GridView.count(crossAxisCount: 4,children: [
             IconButton(onPressed: ()=>showDialog(context: context,builder: (context) {
-              return Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Dialog(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12),side: BorderSide.none),
-                  insetPadding: EdgeInsets.zero,
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text("Create Shelf",style: TextStyle(fontSize: 24,fontWeight: FontWeight.bold),),
-                        const SizedBox(height: 24),
-                        const CustomTextField(initialValue: "title",label: "Enter shelf title",),
-                        const SizedBox(height: 12),
-                        const CustomTextField(initialValue: "description",label: "Enter shelf description",),
-                        const SizedBox(height: 12),
-                        const CustomTextField(initialValue: "self help,personal",label: "Enter shelf tags seperated by ,",),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.end
-                          ,children: [
-                          FilledButton(onPressed: () {
-
-                          },style: const ButtonStyle(backgroundColor: WidgetStatePropertyAll(Colors.red)), child: const Text("Cancel"),),
-                          const SizedBox(width: 12),
-                          FilledButton(onPressed: () {
-
-                          },style: const ButtonStyle(backgroundColor: WidgetStatePropertyAll(Colors.green)), child: const Text("Create")),
-                          ],)
-                      ],),
-                  ),
-                  ),
-              );
-            },barrierDismissible: true,useSafeArea: true),
+              return CreateShelfDialog(shelfId:shelfId);
+            },barrierDismissible: true,useSafeArea: true).then((value) => _router.pop()),
                 icon: const Icon(FontAwesomeIcons.folderPlus,size: 36,color: Colors.orangeAccent)),
             IconButton(onPressed: () async {
               await onFileSelection();
@@ -197,7 +170,6 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
           ]),
         );
       });
-
   }
 
   onFileSelection() async{
@@ -265,31 +237,4 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     super.dispose();
   }
 
-}
-
-
-class CustomTextField extends StatelessWidget {
-  final String label;
-  final String? initialValue;
-
-  const CustomTextField({
-    super.key,
-    required this.label,
-    this.initialValue,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(initialValue: initialValue,decoration: InputDecoration(
-                    labelText: label,
-                    border: OutlineInputBorder(), // Outlined border for TextField
-                    focusedBorder: OutlineInputBorder(
-    borderSide: BorderSide(color: Colors.blue, width: 2.0),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-    borderSide: BorderSide(color: Colors.grey, width: 1.5),
-                    ),
-                    hintText: 'Type something...',
-                  ),);
-  }
 }

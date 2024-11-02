@@ -16,10 +16,10 @@ class NotificationService {
       backgroundColor: color,
       behavior: SnackBarBehavior.floating,
       showCloseIcon: showCloseIcon,
-      margin: const EdgeInsets.symmetric(horizontal:12),
+      margin: const EdgeInsets.symmetric(horizontal:12).copyWith(top: 10),
       duration: duration ?? const Duration(seconds: 2),
     );
+      _scaffoldMessengerKey.currentState?.hideCurrentSnackBar(reason: SnackBarClosedReason.dismiss);
     return _scaffoldMessengerKey.currentState?.showSnackBar(snackbar);
   }
-
 }

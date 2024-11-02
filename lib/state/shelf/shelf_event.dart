@@ -13,8 +13,12 @@ class FetchItemsInShelf extends ShelfEvent{
 
 class CreateShelfIn extends ShelfEvent{
   final String? shelfId;
+  final String title;
+  final String? description;
+  final String? coverImage;
+  final List<String>? tags;
 
-  const CreateShelfIn({this.shelfId});
+  const CreateShelfIn({this.shelfId,required this.title,this.description='',this.coverImage,this.tags=const []});
 }
 
 class CreateFileItem{
