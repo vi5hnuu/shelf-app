@@ -17,7 +17,7 @@ class ShelfState extends Equatable with WithHttpState {
   ShelfState copyWith({
     Map<String, HttpState>? httpStates,
     Shelf? shelf,
-    Set<String?>? invalidatedShelfs=const {},
+    Set<String?>? invalidatedShelfs,
   }) {
     return ShelfState(
       invalidatedShelfs: invalidatedShelfs ?? _invalidatedShelfs,
@@ -32,14 +32,15 @@ class ShelfState extends Equatable with WithHttpState {
     return _rootShelf;
   }
 
-  Shelf clearShelf({required String? shelfId}){
+  Shelf clearShelf({required String? shelfId}){//clear target shelf and return rootshelf
     if(shelfId==null) return Shelf.rootShelf(rootShelfId: ROOT_SHELF_ID);
 
     final reqShelf=_rootShelf.getShelf(shelfId: shelfId);
     if(reqShelf==null) throw Exception("Invalid shelfId");
-    return reqShelf
+    reqShelf
       ..files.clear()
       ..shelfs.clear();
+    return _rootShelf;
   }
 
   isShelfInvalid(String? shelfId){
@@ -71,5 +72,5 @@ class ShelfState extends Equatable with WithHttpState {
 
 
   @override
-  List<Object?> get props => [httpStates, _rootShelf];
+  List<Object?> get props => [httpStates, _rootShelf,_invalidatedShelfs];
 }

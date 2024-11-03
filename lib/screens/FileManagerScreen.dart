@@ -55,6 +55,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
         return PopScope(
           onPopInvokedWithResult: (didPop, result) {
+              if(didPop) return;
               setState(()=>_loadPage(shelfId: (_shelfPaths..removeLast()).lastOrNull,pageNo: 1));
           },
           canPop: _shelfPaths.isEmpty,
@@ -197,8 +198,11 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   }
 
   _goToShelf(String id) {
+    if(_shelfPaths.isNotEmpty && id==_shelfPaths.last)return;
     final exIndex=_shelfPaths.indexOf(id);
-    while(exIndex!=-1 && (_shelfPaths.length-1)>=exIndex) _shelfPaths.removeLast();
+    while(exIndex!=-1 && (_shelfPaths.length-1)>=exIndex) {
+      _shelfPaths.removeLast();
+    }
     setState(()=>_loadPage(shelfId:(_shelfPaths..add(id)).last,pageNo: 1));
   }
 

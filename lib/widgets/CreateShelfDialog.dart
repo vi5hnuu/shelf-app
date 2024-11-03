@@ -43,7 +43,7 @@ class _CreateShelfDialogState extends State<CreateShelfDialog> {
         if(state.isError(forr: Httpstates.CREATE_SHELF)) {
           NotificationService.showSnackbar(text: "Failed to create shelf");
         } else if(state.isDone(forr: Httpstates.CREATE_SHELF)) {
-          NotificationService.showSnackbar(text: "created shelf");
+          NotificationService.showSnackbar(text: "created shelf",color: Colors.green);
           _router.pop();
         }
       },

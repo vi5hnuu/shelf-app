@@ -32,12 +32,12 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
           return add(FetchItemsInShelf(shelfId: event.shelfId, pageNo: 1));
         }
         emit(state.copyWith(shelf: state.clearShelf(shelfId: event.shelfId),httpStates: state.httpStates.clone()..put(Httpstates.ITEMS_IN_SHELF,const HttpState.loading())));
-      }
-      if(!isShelfInvalid)
+      }else{
         emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.ITEMS_IN_SHELF,const HttpState.loading())));
+      }
 
       //TODO ::  remove this test line
-      await Future.delayed(Duration(seconds: 2));
+      await Future.delayed(Duration(milliseconds: 500));
       try {
         final Pageable<Object> itemsInShelf = await _persistance.getItemsInShelf(shelfId: event.shelfId,limit: Constants.DEFAULT_PAGE_SIZE,pageNo: event.pageNo);
 
@@ -97,7 +97,7 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
           title: event.title,description: event.description,coverImage: event.coverImage,tags: event.tags);
 
         //TODO::remove this test line
-        await Future.delayed(Duration(seconds: 3));
+        await Future.delayed(Duration(milliseconds: 500));
         emit(state.copyWith(httpStates:state.httpStates.clone()..put(Httpstates.CREATE_SHELF,const HttpState.done()), invalidatedShelfs: state._invalidatedShelfs.clone()..add(event.shelfId)));
       } catch (e) {
         emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.CREATE_SHELF, HttpState.error(error: e.toString()))));
