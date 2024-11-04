@@ -53,20 +53,21 @@ class ShelfState extends Equatable with WithHttpState {
     return (reqShelf.shelfs.length+reqShelf.files.length)/Constants.DEFAULT_PAGE_SIZE>=pageNo;
   }
 
-  canLoadPage({String? shelfId,required int pageNo}){
-    var invalidShelf=_invalidatedShelfs.contains(shelfId);
-    if((invalidShelf && pageNo!=1) || isLoading(forr: Httpstates.ITEMS_IN_SHELF)) return false;
+  int? canLoadPage({String? shelfId}){
+    if(isLoading(forr: Httpstates.ITEMS_IN_SHELF)) return null;
 
     final Shelf? reqShelf= shelfId==null ? _rootShelf :  _rootShelf.getShelf(shelfId: shelfId);
     if(reqShelf==null) throw Exception("Invalid shelf id");
-    if(pageNo!=1 && reqShelf.totalPages==null) throw Exception("Total pages not initialized");
 
+    if(_invalidatedShelfs.contains(shelfId)) return 1;//load first page
     /*
     if loaded pages is not perfect int means no more pages
-    else we check if tobefetchedpage is more then last fetched page
+    else we check if to be fetched page is more then last fetched page
     * */
     final double loadedPages=(reqShelf.files.length+reqShelf.shelfs.length)/Constants.DEFAULT_PAGE_SIZE;
-    return (invalidShelf && pageNo==1) || ((pageNo==1 || pageNo<=reqShelf.totalPages!.ceil()) && loadedPages+1==pageNo);
+    if(reqShelf.hasItems() && reqShelf.totalPages==null) throw Exception("Total pages not initialized");
+
+    return (reqShelf.totalPages==null || loadedPages+1<=reqShelf.totalPages!.ceil()) ? loadedPages.ceil()+1 : null;
   }
 
 

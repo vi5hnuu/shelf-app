@@ -1,8 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:open_file/open_file.dart';
-import 'package:path/path.dart' as path;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/animation.dart';
 import 'package:flutter/material.dart';
@@ -12,16 +11,13 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shelf/constants/constants.dart';
 import 'package:shelf/extensions/string-entensions.dart';
 import 'package:shelf/models/shelf.dart';
-import 'package:shelf/singletons/LoggerSingleton.dart';
 import 'package:shelf/singletons/NotificationService.dart';
-import 'package:shelf/singletons/persistance/persistance.dart';
 import 'package:shelf/state/httpStates.dart';
 import 'package:shelf/state/shelf/shelf_bloc.dart';
 import 'package:shelf/widgets/CreateShelfDialog.dart';
-import 'package:shelf/widgets/FileView.dart';
 import 'package:shelf/widgets/PathView.dart';
 import 'package:shelf/widgets/RetryAgain.dart';
-import 'package:shelf/widgets/ShelfView.dart';
+import 'package:shelf/widgets/ItemView.dart';
 
 class FileManagerScreen extends StatefulWidget {
   const FileManagerScreen({super.key});
@@ -30,18 +26,29 @@ class FileManagerScreen extends StatefulWidget {
   State<FileManagerScreen> createState() => _FileManagerScreenState();
 }
 
-class _FileManagerScreenState extends State<FileManagerScreen> {
+class _FileManagerScreenState extends State<FileManagerScreen> with SingleTickerProviderStateMixin {
   late final GoRouter _router=GoRouter.of(context);
+  late AnimationController _animationController;
   final List<String> _shelfPaths=[];//path to current shelf
   final ScrollController _scrollController = ScrollController();
   late final ShelfBloc _shelfBloc;
-  int pageNo = 1;
+  bool isSelectionMode=false;
+
+  final Set<int> selectedItemsIndex={};
 
   @override
   void initState() {
     _shelfBloc=BlocProvider.of<ShelfBloc>(context);
-    _loadPage(shelfId:null,pageNo:1);
+    _loadPage(shelfId:null);
     _scrollController.addListener(_loadNextPage);
+
+    //animation
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      lowerBound: 0.95,
+      upperBound: 1.0,
+    );
     super.initState();
   }
 
@@ -51,14 +58,16 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final _router=GoRouter.of(context);
-
-        return PopScope(
+    return PopScope(
           onPopInvokedWithResult: (didPop, result) {
               if(didPop) return;
-              setState(()=>_loadPage(shelfId: (_shelfPaths..removeLast()).lastOrNull,pageNo: 1));
+              if(isSelectionMode) {//is selection mode -> move to normal
+                setState(() => isSelectionMode = false);
+              } else{ // else go to last shelf
+                setState(()=>_loadPage(shelfId: (_shelfPaths..removeLast()).lastOrNull));
+              }
           },
-          canPop: _shelfPaths.isEmpty,
+          canPop: _shelfPaths.isEmpty && !isSelectionMode,
           child: BlocConsumer<ShelfBloc, ShelfState>(
               listener: (context, state) {},
               buildWhen: (previous, current) => previous != current,
@@ -84,57 +93,128 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                   onPressed: ()=>_openShelfActions(context)),
               body: Padding(
           padding: const EdgeInsets.all(12.0),
-          child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    PathView(onPathClick: (sid) {
-                      _goToShelf(sid);
-                    },paths: paths),
-                    const SizedBox(height: 12,),
-                    if(state.isLoading(forr: Httpstates.SAVING_FILES_IN_SHELF))
-                      const SpinKitThreeBounce(color: Colors.green,size: 24)
-                    else if(shelf.hasItems()) Expanded(
-                      child: GridView.builder(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.max,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PathView(onPathClick: (sid) {
+                    _goToShelf(sid);
+                  },paths: paths),
+                  const SizedBox(height: 12,),
+                  if(state.isLoading(forr: Httpstates.SAVING_FILES_IN_SHELF))
+                    const SpinKitThreeBounce(color: Colors.green,size: 24)
+                  else if(shelf.hasItems()) Expanded(
+                    child: GridView.builder(
                         controller: _scrollController,
                         shrinkWrap: true,
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 4,
                             crossAxisSpacing: 24,
                             mainAxisSpacing: 24,
-                        childAspectRatio: 1),
+                            childAspectRatio: 1),
                         itemCount: totalItems,
                         itemBuilder: (context, index) {
                           if(index<shelf.shelfs.length){
                             final nestedShelf=shelf.shelfs[index];
                             return GestureDetector(
-                              onDoubleTap: ()=>_goToShelf(nestedShelf.id),
-                              child: ShelfView(svgPath: "assets/svg/shelf.svg",title: nestedShelf.title,),
+                              onDoubleTap: (){
+                                if(isSelectionMode) return;
+                                _goToShelf(nestedShelf.id);
+                              },
+                              onTap: () {
+                                if(!isSelectionMode) return;
+                                setState(() {
+                                  if(selectedItemsIndex.contains(index)){
+                                    selectedItemsIndex.remove(index);
+                                  }else{
+                                    selectedItemsIndex.add(index);
+                                  }
+                                });
+                              },
+                              onLongPress: _onItemLongPress,
+                              child: AnimatedScale(
+                                  scale: isSelectionMode && selectedItemsIndex.contains(index) ? 0.9 : 1.0,
+                                  duration: const Duration(milliseconds: 100),
+                                  child: ItemView(
+                                      svgPath: "assets/svg/shelf.svg",
+                                      title: nestedShelf.title,
+                                      selectable: isSelectionMode,
+                                      onSelect: (value) {
+                                        setState(() {
+                                          if (value == true) {
+                                            selectedItemsIndex
+                                                .add(index);
+                                          } else {
+                                            selectedItemsIndex
+                                                .remove(index);
+                                          }
+                                        });
+                                      },
+                                      selected: selectedItemsIndex
+                                          .contains(index))),
                             );
                           }else{
                             final file=shelf.files[index-shelf.shelfs.length];
                             return GestureDetector(
-                              onTap: () => _openFile(file: file),
-                              child: FileView(svgPath: Constants.getFileSvgPath(SupportedFileType.toEnum(file.type)),title: file.title),
+                              onTap: (){
+                                if(isSelectionMode){
+                                  setState(() {
+                                    if(selectedItemsIndex.contains(index)){
+                                      selectedItemsIndex.remove(index);
+                                    }else{
+                                      selectedItemsIndex.add(index);
+                                    }
+                                  });
+                                  return;
+                                }
+                                _openFile(file: file);
+                              },
+                              onLongPress: _onItemLongPress,
+                              child: AnimatedScale(
+                                scale: isSelectionMode && selectedItemsIndex.contains(index) ? 0.9 : 1.0,
+                                duration: const Duration(milliseconds: 100),
+                                child: ItemView(
+                                    svgPath: Constants.getFileSvgPath(
+                                        SupportedFileType.toEnum(
+                                            file.type)),
+                                    title: file.title,
+                                    selectable: isSelectionMode,
+                                    onSelect: (value) {
+                                      setState(() {
+                                        if (value == true) {
+                                          selectedItemsIndex.add(index);
+                                        } else {
+                                          selectedItemsIndex.remove(index);
+                                        }
+                                      });
+                                    },
+                                    selected:
+                                    selectedItemsIndex.contains(index)),
+                              ),
                             );
                           }
                         }
-                      ),
-                    )
-                    else if(!state.isLoading(forr: Httpstates.ITEMS_IN_SHELF) && !shelf.hasItems()) const Text("Create shelf/ Add files ⭐📚",textAlign: TextAlign.center,style: TextStyle(fontSize: 24,fontWeight: FontWeight.bold)),
-                    Container(
-                      decoration: const BoxDecoration(color: Colors.white),
-                      child: (state.isLoading(forr: Httpstates.ITEMS_IN_SHELF))
-                          ? Padding(padding: const EdgeInsets.symmetric(vertical: 20),child: SpinKitThreeBounce(color: Theme.of(context).primaryColor, size: 24))
-                          : ((state.isError(forr: Httpstates.ITEMS_IN_SHELF))
-                              ? RetryAgain(
-                                  onRetry: ()=>_loadPage(shelfId: shelfId, pageNo: pageNo),
-                                  error: state
-                                      .getError(forr: Httpstates.ITEMS_IN_SHELF)!)
-                              : null),
-                    )
-                  ],
-                ),
+                    ),
+                  )
+                  else if(!state.isLoading(forr: Httpstates.ITEMS_IN_SHELF) && !shelf.hasItems()) const Text("Create shelf/ Add files ⭐📚",textAlign: TextAlign.center,style: TextStyle(fontSize: 24,fontWeight: FontWeight.bold)),
+                  Container(
+                    decoration: const BoxDecoration(color: Colors.white),
+                    child: (state.isLoading(forr: Httpstates.ITEMS_IN_SHELF))
+                        ? Padding(padding: const EdgeInsets.symmetric(vertical: 20),child: SpinKitThreeBounce(color: Theme.of(context).primaryColor, size: 24))
+                        : ((state.isError(forr: Httpstates.ITEMS_IN_SHELF))
+                        ? RetryAgain(
+                        onRetry: ()=>_loadPage(shelfId: shelfId),
+                        error: state
+                            .getError(forr: Httpstates.ITEMS_IN_SHELF)!)
+                        : null),
+                  )
+                ],
+              )
+            ],
+          ),
                 ));}),
         );
   }
@@ -182,8 +262,8 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     }
   }
 
-  void _loadPage({required String? shelfId,required int pageNo}) {
-    _shelfBloc.add(FetchItemsInShelf(shelfId: shelfId,pageNo: pageNo));
+  void _loadPage({required String? shelfId}) {
+    _shelfBloc.add(FetchNextItemsInShelf(shelfId: shelfId));
   }
 
   void _loadNextPage() {
@@ -193,8 +273,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     double scrollPercentage = currentScrollPosition / maxScrollExtent;
     // Check if scroll percentage is greater than or equal to 80%
     if (scrollPercentage <= 0.8) return;
-    final canLoadNextPage = _shelfBloc.state.canLoadPage(pageNo: pageNo+1,shelfId: shelfId);
-    if(canLoadNextPage) setState(() => _loadPage(shelfId: shelfId,pageNo: ++pageNo));
+    setState(() => _loadPage(shelfId: shelfId));
   }
 
   _goToShelf(String id) {
@@ -203,7 +282,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     while(exIndex!=-1 && (_shelfPaths.length-1)>=exIndex) {
       _shelfPaths.removeLast();
     }
-    setState(()=>_loadPage(shelfId:(_shelfPaths..add(id)).last,pageNo: 1));
+    setState(()=>_loadPage(shelfId:(_shelfPaths..add(id)).last));
   }
 
   Future<List<PlatformFile>> _pickFiles() async {
@@ -234,8 +313,17 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     }
   }
 
+  // Handle long press with vibration and animation
+  void _onItemLongPress() {
+    if(isSelectionMode) return;
+    HapticFeedback.vibrate();
+    _animationController.forward().then((_) => _animationController.reverse());
+    setState(()=>isSelectionMode = true);
+  }
+
   @override
   void dispose() {
+    _animationController.dispose();
     _scrollController.removeListener(_loadNextPage);
     _scrollController.dispose();
     super.dispose();

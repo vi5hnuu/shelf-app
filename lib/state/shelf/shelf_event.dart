@@ -5,10 +5,9 @@ abstract class ShelfEvent {
   const ShelfEvent();
 }
 
-class FetchItemsInShelf extends ShelfEvent{
+class FetchNextItemsInShelf extends ShelfEvent{
   final String? shelfId;
-  final int pageNo;
-  const FetchItemsInShelf({required this.shelfId,required this.pageNo});
+  const FetchNextItemsInShelf({required this.shelfId});
 }
 
 class CreateShelfIn extends ShelfEvent{

@@ -22,14 +22,14 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
   final _persistance = Persistance();
 
   ShelfBloc() : super(ShelfState.initial()) {
-    on<FetchItemsInShelf>((event,emit)async{
+    on<FetchNextItemsInShelf>((event,emit)async{
       final isShelfInvalid=state.isShelfInvalid(event.shelfId);
-      if(!state.canLoadPage(shelfId: event.shelfId,pageNo: event.pageNo)) return emit(state.copyWith());
+      final int? nextPage=state.canLoadPage(shelfId: event.shelfId);
+      if(nextPage==null) return emit(state.copyWith());
 
       if(isShelfInvalid){
-        if(event.pageNo!=1) {
-          // throw Exception("shelf is invalid, page no must be 1");
-          return add(FetchItemsInShelf(shelfId: event.shelfId, pageNo: 1));
+        if(nextPage!=1) {
+          throw Exception("shelf is invalid, page no must be 1");
         }
         emit(state.copyWith(shelf: state.clearShelf(shelfId: event.shelfId),httpStates: state.httpStates.clone()..put(Httpstates.ITEMS_IN_SHELF,const HttpState.loading())));
       }else{
@@ -39,7 +39,7 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
       //TODO ::  remove this test line
       await Future.delayed(Duration(milliseconds: 500));
       try {
-        final Pageable<Object> itemsInShelf = await _persistance.getItemsInShelf(shelfId: event.shelfId,limit: Constants.DEFAULT_PAGE_SIZE,pageNo: event.pageNo);
+        final Pageable<Object> itemsInShelf = await _persistance.getItemsInShelf(shelfId: event.shelfId,limit: Constants.DEFAULT_PAGE_SIZE,pageNo: nextPage);
 
         final List<Shelf> shelfs=[];
         final List<File> files=[];
@@ -149,11 +149,11 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
     super.onTransition(transition);
     if((transition.event is DeleteItems || transition.event is MoveItemsTo) && !transition.nextState.hasAnyHttpState(forr: [Httpstates.DELETE_ITEMS,Httpstates.MOVE_ITEMS_TO])){
       String parentShelfId=transition.event is DeleteItems ? (transition.event as DeleteItems).parentShelfId : (transition.event as MoveItemsTo).parentShelfId;
-      add(FetchItemsInShelf(shelfId: parentShelfId, pageNo: 1));
+      add(FetchNextItemsInShelf(shelfId: parentShelfId));
     }else if(transition.event is SaveFilesInShelf && !transition.nextState.hasHttpState(forr: Httpstates.SAVING_FILES_IN_SHELF)){
-      add(FetchItemsInShelf(shelfId: (transition.event as SaveFilesInShelf).shelfId, pageNo: 1));
+      add(FetchNextItemsInShelf(shelfId: (transition.event as SaveFilesInShelf).shelfId));
     }else if(transition.event is CreateShelfIn && transition.nextState.isDone(forr: Httpstates.CREATE_SHELF)){
-      add(FetchItemsInShelf(shelfId: (transition.event as CreateShelfIn).shelfId, pageNo: 1));
+      add(FetchNextItemsInShelf(shelfId: (transition.event as CreateShelfIn).shelfId));
     }
   }
 

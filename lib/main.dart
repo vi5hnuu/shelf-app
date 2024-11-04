@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shelf/routing/routes.dart';
 import 'package:shelf/screens/FileManagerScreen.dart';
-import 'package:shelf/screens/HomeScreen.dart';
 import 'package:shelf/screens/SplashScreen.dart';
 import 'package:shelf/singletons/NotificationService.dart';
 import 'package:shelf/state/shelf/shelf_bloc.dart';
