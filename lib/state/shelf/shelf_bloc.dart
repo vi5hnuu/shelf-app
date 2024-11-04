@@ -13,7 +13,7 @@ import 'package:shelf/singletons/persistance/model/create-file.dart';
 import 'package:shelf/singletons/persistance/persistance.dart';
 import 'package:shelf/state/WithHttpState.dart';
 import 'package:shelf/state/httpStates.dart';
-
+import 'package:path/path.dart' as path;
 import '../../models/shelf.dart';
 part 'shelf_event.dart';
 part 'shelf_state.dart';
@@ -111,7 +111,17 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
       List<CreateFile> savedFiles = [];
       for (var createFileItem in createFileItems) {
         if (createFileItem.file.readStream == null) continue;
-        String newFilePath = "${appDocDir.path}/${createFileItem.file.name}";
+
+        //if file exists with this name append random text
+        String fileNameWithoutExtension=path.basename(createFileItem.file.path!);
+        String newFilePath = path.join(appDocDir.path,createFileItem.file.name);
+
+        // Check if a file with the same name already exists, and add a counter if needed
+        int count=0;
+        while (await io.File(newFilePath).exists()) {
+          newFilePath = path.join(appDocDir.path, "$fileNameWithoutExtension($count)${createFileItem.file.extension}");
+          count++;
+        }
         io.File newFile = io.File(newFilePath);
 
         // Open a sink for writing to the new file
