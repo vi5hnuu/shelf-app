@@ -49,7 +49,6 @@ class MoveItemsTo extends ShelfEvent{
 }
 
 class DeleteItems extends ShelfEvent{
-  final bool permanentDelete;
   final String parentShelfId;//the shelf on which fileIds/shelfIds exists
   final List<String> fileIds;
   final List<String> shelfIds;
@@ -57,6 +56,5 @@ class DeleteItems extends ShelfEvent{
   const DeleteItems({
       required this.parentShelfId,
       required this.fileIds,
-      required this.shelfIds,
-      this.permanentDelete=false});
+      required this.shelfIds});
 }

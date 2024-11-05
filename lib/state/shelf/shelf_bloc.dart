@@ -72,9 +72,15 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
     on<DeleteItems>((event,emit)async{
       emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.DELETE_ITEMS,const HttpState.loading())));
       try {
-        final deletedItemsPath=await _persistance.deleteItems(parentShelfId:event.parentShelfId,fileIds: event.fileIds, shelfIds: event.shelfIds, permanentDelete: event.permanentDelete);
+        List<String> toBeDeltedFilePaths=[];
 
-        //TODO:: delete actual files
+        toBeDeltedFilePaths=await _persistance.getFilePaths(parentShelfId:event.parentShelfId,fileIds: event.fileIds, shelfIds: event.shelfIds);
+
+        //delete from db
+        await _persistance.deleteItems(parentShelfId:event.parentShelfId,fileIds: event.fileIds, shelfIds: event.shelfIds);
+
+        //delete from storage
+        await deleteFilesAt(paths:toBeDeltedFilePaths);
 
         emit(state.copyWith(httpStates:state.httpStates.clone()..put(Httpstates.DELETE_ITEMS,const HttpState.done()), invalidatedShelfs: state._invalidatedShelfs.clone()..add(event.parentShelfId)));
       } catch (e) {
@@ -142,6 +148,14 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
       return savedFiles;
   }
 
+  Future<void> deleteFilesAt({required List<String> paths}) async{
+    for(final filePath in paths){
+      io.File tobeDeletedFile = io.File(filePath);
+      if(!await tobeDeletedFile.exists()) return;
+      await tobeDeletedFile.delete();
+    }
+  }
+
   @override
   void onEvent(ShelfEvent event) {
     super.onEvent(event);
@@ -161,5 +175,4 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
       add(FetchNextItemsInShelf(shelfId: (transition.event as DeleteItems).parentShelfId));
     }
   }
-
 }

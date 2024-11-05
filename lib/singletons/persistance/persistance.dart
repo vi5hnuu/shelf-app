@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:shelf/constants/IdGenerators.dart';
 import 'package:shelf/constants/constants.dart';
 import 'package:shelf/models/Pageable.dart';
@@ -27,7 +26,6 @@ class Persistance{
           description TEXT DEFAULT "",
           cover_image TEXT,
           tag TEXT DEFAULT "",
-          active INTEGER DEFAULT 1,
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL,
           last_accessed INTEGER NOT NULL,
@@ -46,7 +44,6 @@ class Persistance{
           type TEXT,
           size INTEGER,
           tags TEXT DEFAULT "",
-          active INTEGER DEFAULT 1,
           description TEXT DEFAULT "",
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL,
@@ -56,7 +53,6 @@ class Persistance{
         )
       ''';
 
-  static Timer? _timer;
   static bool _initiated=false;
 
   static final Persistance _instance = Persistance._();
@@ -72,7 +68,6 @@ class Persistance{
       if(_initiated) throw Exception("do not re-initiate persistance");
       _initiated=true;
 
-      _timer=Timer.periodic(const Duration(seconds: 30), (timer) => _deleteOldInactiveItems());
       _db = await openDatabase(_dbName,
           singleInstance: true,
           version: 1,
@@ -204,15 +199,15 @@ class Persistance{
     return countResult.isNotEmpty ? countResult.first['total'] as int : 0;
   }
 
-  Future<List<Shelf>> getShelfsFromOffset({String? parentShelfId,required int offset,required int limit}) async {
-    assert(offset>=0 && limit>0 && limit<=50 && _db!=null);
+  Future<List<Shelf>> getShelfsFromOffset({String? parentShelfId,int? offset,int? limit}) async {
+    if(_db==null) throw Exception("Db not initialized");
 
     final List<Map<String, dynamic>> shelfsRaw = await _db!.query(
         _tableShelf,
         where: parentShelfId!=null ? 'parent_shelf_id = ?':'parent_shelf_id IS ?',
         whereArgs: [parentShelfId],
         limit: limit,
-        offset: offset,
+        offset: offset ?? 0,
         orderBy: 'created_at ASC'
     );
     final List<Shelf> shelfs=shelfsRaw.map((shelf)=>Shelf.fromMap(shelf)).toList(growable: false);
@@ -256,56 +251,57 @@ class Persistance{
     return await _db!.rawUpdate(filesMoveUpdateQuery,[toShelfId,shelfIds.join(',')]);
   }
 
-  Future<int> _deleteShlefs({required String? parentShelfId,required List<String> shelfIds,required bool permanentDelete}) async{
+  Future<int> _deleteShlefs({required String? parentShelfId,required List<String> shelfIds}) async{
     if(shelfIds.isEmpty || _db==null) throw Exception("Invalid State");
 
     final idPlaceHolders=List.filled(shelfIds.length, '?,').join(',');
-    if(permanentDelete){
-      return await _db!.delete(_tableShelf,
-          where: '${parentShelfId==null || parentShelfId==ShelfState.ROOT_SHELF_ID ? 'parent_shelf_id IS ?':'parent_shelf_id = ?'} AND id IN ($idPlaceHolders)',
-          whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...shelfIds]);
-    }
-    return await _db!.update(_tableShelf,{'active':0},
+    return await _db!.delete(_tableShelf,
         where: '${parentShelfId==null || parentShelfId==ShelfState.ROOT_SHELF_ID ? 'parent_shelf_id IS ?':'parent_shelf_id = ?'} AND id IN ($idPlaceHolders)',
-        whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...shelfIds],conflictAlgorithm: ConflictAlgorithm.rollback);
+        whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...shelfIds]);
   }
 
-  Future<int> _deleteFiles({required String? parentShelfId,required List<String> fileIds,required bool permanentDelete}) async{
+  Future<int> _deleteFiles({required String? parentShelfId,required List<String> fileIds}) async{
     if(fileIds.isEmpty || _db==null) throw Exception("Invalid State");
 
     final idPlaceHolders=List.filled(fileIds.length, '?').join(',');
-    if(permanentDelete){
-      return await _db!.delete(_tableFile,
-          where: '${parentShelfId==null || parentShelfId==ShelfState.ROOT_SHELF_ID ? 'shelf_id IS ?':'shelf_id = ?'} AND id IN ($idPlaceHolders)',
-          whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...fileIds]);
-    }
-    return await _db!.update(_tableFile,{'active':0},
+    return await _db!.delete(_tableFile,
         where: '${parentShelfId==null || parentShelfId==ShelfState.ROOT_SHELF_ID ? 'shelf_id IS ?':'shelf_id = ?'} AND id IN ($idPlaceHolders)',
-        whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...fileIds],conflictAlgorithm: ConflictAlgorithm.rollback);
+        whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...fileIds]);
   }
 
-  static void _deleteOldInactiveItems() async {//delete inactive items older than 1 month
-    return;
-    if(_db==null){
-      LoggerSingleton().logger.w("Db not initialized, skipping [_deleteOldInactiveItems()]");
-      return;
+  Future<List<String>> getFilePaths({required String parentShelfId, required List<String> fileIds, required List<String> shelfIds}) async {
+    if(_db==null) throw Exception("Invalid State");
+
+    List<Future<List<String>>> futures=[];
+    if(fileIds.isNotEmpty) futures.add(getFilePathFor(parentShelfId: parentShelfId,fileIds: fileIds));
+
+    for(final shelfId in  shelfIds){
+      futures.add(getNestedFilePaths(shelfId:shelfId));
     }
-    final int oneMonthAgo = DateTime.now().subtract(const Duration(days: 30)).millisecondsSinceEpoch;
 
-    // Query to delete items where active = false and created_at is more than 30 days old
-    await _db!.rawDelete('''
-      DELETE FROM $_tableFile
-      WHERE active=? AND updated_at < ?
-    ''',[0,oneMonthAgo]);
+    final pathLists = await Future.wait(futures);
+    return pathLists.expand((pathList)=>pathList).toList();
   }
 
-  Future<Pageable<Shelf>> getShelfs({String? parentShelfId,int pageNo = 1, int limit = 10}) async {
-    assert(pageNo>=1 && limit>10 && limit<=50 && _db!=null);
-    final List<Shelf> shelfs=await getShelfsFromOffset(parentShelfId: parentShelfId,offset: (pageNo-1)*limit,limit: limit);
+  Future<List<String>> getFilePathFor({required String? parentShelfId,List<String>? fileIds}) async{//if null -> all fileIds, else give fileIds
+    final pathsRaw = await _db!.query(_tableFile,
+        where: '${parentShelfId==null || parentShelfId==ShelfState.ROOT_SHELF_ID ? 'shelf_id IS ?':'shelf_id = ?'} ${fileIds!=null && fileIds.isNotEmpty ? 'And id in (${List.filled(fileIds.length, '?').join(',')})':''}',
+        whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...(fileIds??[])],
+        columns: ["path"],
+    );
+    return pathsRaw.map((rawEntry)=>rawEntry['path'] as String).toList();
+  }
 
-    //calculating total pages
-    final totalPages=await _getTotalShelfs(parentShelfId: parentShelfId)/limit;
-    return Future.value(Pageable<Shelf>(pageNo: pageNo,totalPages: totalPages,data: shelfs));
+  Future<List<String>> getNestedFilePaths({required String shelfId}) async {
+    List<Future<List<String>>> futures=[];
+    futures.add(getFilePathFor(parentShelfId: shelfId));
+
+    final List<Shelf> nestedShelfs=await getShelfsFromOffset(parentShelfId: shelfId);
+    for(final shelf in nestedShelfs){
+      futures.add(getNestedFilePaths(shelfId: shelf.id));
+    }
+    final paths=await Future.wait(futures);
+    return paths.expand((paths)=>paths).toList();
   }
 
   //both shelfs and files [we allow root to have shelfs and files]
@@ -346,22 +342,21 @@ class Persistance{
     return result.reduce((value, element) => value+element);
   }
 
-  Future<int> deleteItems({required String parentShelfId,required List<String> fileIds,required List<String> shelfIds,required bool permanentDelete}) async{
+  Future<int> deleteItems({required String parentShelfId,required List<String> fileIds,required List<String> shelfIds}) async{
     if((shelfIds.isEmpty && fileIds.isEmpty) || _db==null) throw Exception("Invalid state");
 
     List<Future> futures=[];
 
-    if(fileIds.isNotEmpty) futures.add(_deleteFiles(parentShelfId:parentShelfId,fileIds: fileIds, permanentDelete: permanentDelete));
+    if(fileIds.isNotEmpty) futures.add(_deleteFiles(parentShelfId:parentShelfId,fileIds: fileIds));
 
     //deleting shelf means there nested files shelfs are auto deleted because of cascade
-    if(shelfIds.isNotEmpty) futures.add(_deleteShlefs(parentShelfId:parentShelfId,shelfIds: shelfIds, permanentDelete: permanentDelete));
+    if(shelfIds.isNotEmpty) futures.add(_deleteShlefs(parentShelfId:parentShelfId,shelfIds: shelfIds));
     final result=await Future.wait(futures);
     return result.reduce((value, element) => value+element);
   }
 
   void dispose()async{
     await _db?.close();
-    _timer?.cancel();
   }
 
   void createDummyData(int from,int maxLevel,String? psid)async {

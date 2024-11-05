@@ -6,7 +6,6 @@ class Shelf{
   final String description;
   final String? coverImage;
   final String id;
-  final bool active;
   final int createdAt;
   final int updatedAt;
   final int lastAccessed;
@@ -22,7 +21,6 @@ class Shelf{
       required this.title,
       required this.description,
       required this.coverImage,
-      required this.active,
       required this.createdAt,
       required this.updatedAt,
       required this.lastAccessed,
@@ -37,7 +35,6 @@ class Shelf{
         title: '',
         description: 'Root Shelf',
         coverImage: null,
-        active: true,
         createdAt: now,
         updatedAt: now,
         lastAccessed: now);
@@ -62,7 +59,6 @@ class Shelf{
         title: title,
         description: description,
         coverImage: coverImage,
-        active: active,
         createdAt: createdAt,
         updatedAt: updatedAt,
         files: files ?? this.files,
@@ -102,7 +98,6 @@ class Shelf{
         title: shelfJson['title'] as String,
         description: shelfJson['description'] as String,
         coverImage: shelfJson['cover_image'] as String?,
-        active: (shelfJson['active'] as int)==1,
         createdAt: shelfJson['created_at'] as int,
         updatedAt: shelfJson['updated_at'] as int,
         lastAccessed: shelfJson['last_accessed'] as int);
@@ -122,7 +117,6 @@ class File {
   final List<String> tags;
   final String description;
   final String id;
-  final bool active;
   final int createdAt;
   final int updatedAt;
   final int lastAccessedAt;
@@ -136,7 +130,6 @@ class File {
         required this.size,
         required this.tags,
         required this.description,
-        required this.active,
         required this.createdAt,
         required this.updatedAt,
         required this.lastAccessedAt,
@@ -150,7 +143,6 @@ class File {
         type: fileJson['type'] as String,
         size: fileJson['size'] as int,
         tags: (jsonDecode(fileJson['tags'] as String) as List).map((tag)=>tag as String).toList(),
-        active: (fileJson['active'] as int)==1,
         description: fileJson['description'] as String,
         createdAt: fileJson['created_at'] as int,
         updatedAt: fileJson['updated_at'] as int,

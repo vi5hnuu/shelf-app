@@ -344,7 +344,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> with SingleTicker
         fileIds.add(shelf.files[idx-shelf.shelfs.length].id);
       }
     }
-    _shelfBloc.add(DeleteItems(parentShelfId: shelf.id, fileIds: fileIds, shelfIds: shelfIds,permanentDelete: true));
+    _shelfBloc.add(DeleteItems(parentShelfId: shelf.id, fileIds: fileIds, shelfIds: shelfIds));
   }
 
   @override
