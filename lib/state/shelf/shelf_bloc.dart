@@ -123,15 +123,16 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
 
         //if file exists with this name append random text
         String fileNameWithoutExtension=path.basename(createFileItem.file.path!);
-        String newFilePath = path.join(appDocDir.path,createFileItem.file.name);
+        String newFileName = createFileItem.file.name;
 
         // Check if a file with the same name already exists, and add a counter if needed
         int count=0;
-        while (await io.File(newFilePath).exists()) {
-          newFilePath = path.join(appDocDir.path, "$fileNameWithoutExtension($count)${createFileItem.file.extension}");
+        while (await io.File(path.join(appDocDir.path,newFileName)).exists()) {
+          newFileName = "$fileNameWithoutExtension($count)${createFileItem.file.extension}";
           count++;
         }
-        io.File newFile = io.File(newFilePath);
+        final filePath=path.join(appDocDir.path,newFileName);
+        io.File newFile = io.File(filePath);
 
         // Open a sink for writing to the new file
         io.IOSink sink = newFile.openWrite();
@@ -140,8 +141,8 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
         await createFileItem.file.readStream!.forEach((chunk) => sink.add(chunk));
         await sink.close();
         savedFiles.add(CreateFile(shelfId: shelfId,
-            filePath: newFilePath,
-            title: createFileItem.file.name,
+            filePath: filePath,
+            title: newFileName,
             type: createFileItem.file.extension ?? 'txt',
             size: createFileItem.file.size)); // Store saved path
       }
