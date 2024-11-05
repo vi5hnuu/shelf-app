@@ -55,7 +55,7 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
         final Shelf rootShelf=state.rootShelf
             .addToShelf(shelfId: event.shelfId ?? ShelfState.ROOT_SHELF_ID,files:files,shelfs: shelfs,totalPages: itemsInShelf.totalPages);
         final invalidatedShelfs=isShelfInvalid ? (state._invalidatedShelfs.clone()..remove(event.shelfId)) : state._invalidatedShelfs.clone();
-        emit(state.copyWith(invalidatedShelfs: invalidatedShelfs,httpStates:state.httpStates.clone()..remove(Httpstates.ITEMS_IN_SHELF), shelf: rootShelf));
+        emit(state.copyWith(invalidatedShelfs: invalidatedShelfs,httpStates:state.httpStates.clone()..put(Httpstates.ITEMS_IN_SHELF,const HttpState.done()), shelf: rootShelf));
       } catch (e) {
         emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.ITEMS_IN_SHELF, HttpState.error(error: e.toString()))));
       }
@@ -64,7 +64,7 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
       emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.MOVE_ITEMS_TO,const HttpState.loading())));
       try {
         final movedItemsCount=await _persistance.moveItemsTo(toShelfId: event.toShelfId,fileIds: event.fileIds, shelfIds: event.shelfIds);
-        emit(state.copyWith(httpStates:state.httpStates.clone()..remove(Httpstates.MOVE_ITEMS_TO), invalidatedShelfs: state._invalidatedShelfs.clone()..addAll([event.toShelfId,event.parentShelfId])));
+        emit(state.copyWith(httpStates:state.httpStates.clone()..put(Httpstates.MOVE_ITEMS_TO,const HttpState.done()), invalidatedShelfs: state._invalidatedShelfs.clone()..addAll([event.toShelfId,event.parentShelfId])));
       } catch (e) {
         emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.MOVE_ITEMS_TO, HttpState.error(error: e.toString()))));
       }
@@ -93,7 +93,7 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
         //same file save twice -> single entry in app_dir but 2 entry in db [take care while deleting]
         List<CreateFile> toSaveFiles = await saveFilesIn(event.shelfId,event.files);
         await _persistance.createFiles(files: toSaveFiles);
-        emit(state.copyWith(httpStates:state.httpStates.clone()..remove(Httpstates.SAVING_FILES_IN_SHELF), invalidatedShelfs: state._invalidatedShelfs.clone()..add(event.shelfId)));
+        emit(state.copyWith(httpStates:state.httpStates.clone()..put(Httpstates.SAVING_FILES_IN_SHELF,const HttpState.done()), invalidatedShelfs: state._invalidatedShelfs.clone()..add(event.shelfId)));
       } catch (e) {
         emit(state.copyWith(httpStates: state.httpStates.clone()..put(Httpstates.SAVING_FILES_IN_SHELF, HttpState.error(error: e.toString()))));
       }
@@ -164,10 +164,13 @@ class ShelfBloc extends Bloc<ShelfEvent, ShelfState> {
   @override
   void onTransition(Transition<ShelfEvent, ShelfState> transition) {
     super.onTransition(transition);
-    if((transition.event is DeleteItems || transition.event is MoveItemsTo) && !transition.nextState.hasAnyHttpState(forr: [Httpstates.DELETE_ITEMS,Httpstates.MOVE_ITEMS_TO])){
-      String parentShelfId=transition.event is DeleteItems ? (transition.event as DeleteItems).parentShelfId : (transition.event as MoveItemsTo).parentShelfId;
+    if(transition.event is DeleteItems && transition.nextState.isDone(forr: Httpstates.DELETE_ITEMS)){
+      String parentShelfId=(transition.event as DeleteItems).parentShelfId;
       add(FetchNextItemsInShelf(shelfId: parentShelfId));
-    }else if(transition.event is SaveFilesInShelf && !transition.nextState.hasHttpState(forr: Httpstates.SAVING_FILES_IN_SHELF)){
+    }else if(transition.event is MoveItemsTo && transition.nextState.isDone(forr: Httpstates.MOVE_ITEMS_TO)){
+      String parentShelfId=(transition.event as MoveItemsTo).parentShelfId;
+      add(FetchNextItemsInShelf(shelfId: parentShelfId));
+    }else if(transition.event is SaveFilesInShelf && transition.nextState.isDone(forr: Httpstates.SAVING_FILES_IN_SHELF)){
       add(FetchNextItemsInShelf(shelfId: (transition.event as SaveFilesInShelf).shelfId));
     }else if(transition.event is CreateShelfIn && transition.nextState.isDone(forr: Httpstates.CREATE_SHELF)){
       add(FetchNextItemsInShelf(shelfId: (transition.event as CreateShelfIn).shelfId));

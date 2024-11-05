@@ -237,8 +237,9 @@ class Persistance{
       SET shelf_id=?
       where id in (?)
     ''';
-
-    return await _db!.rawUpdate(filesMoveUpdateQuery,[toShelfId,fileIds.join(',')]);
+    return await _db!.update(_tableFile, {'shelf_id': toShelfId},
+        where: 'id in (${List.filled(fileIds.length, '?').join(',')})',
+        whereArgs: fileIds);
   }
 
   Future<int> _moveShelfsToShelf({required String? toShelfId,required List<String> shelfIds}) async {
@@ -248,7 +249,9 @@ class Persistance{
       SET parent_shelf_id=?
       where id in (?)
     ''';
-    return await _db!.rawUpdate(filesMoveUpdateQuery,[toShelfId,shelfIds.join(',')]);
+    return await _db!.update(_tableShelf,{'parent_shelf_id':toShelfId},
+        where: 'id in (${List.filled(shelfIds.length, '?').join(',')})',
+        whereArgs: shelfIds);
   }
 
   Future<int> _deleteShlefs({required String? parentShelfId,required List<String> shelfIds}) async{
@@ -333,7 +336,7 @@ class Persistance{
   }
 
   Future<int> moveItemsTo({required String? toShelfId,required List<String> fileIds,required List<String> shelfIds}) async{
-    assert((fileIds.isNotEmpty || shelfIds.isNotEmpty) && _db!=null);
+    if((fileIds.isEmpty && shelfIds.isEmpty) || _db==null) throw Exception("Invalid state");
 
     List<Future> futures=[];
     if(shelfIds.isNotEmpty) futures.add(_moveShelfsToShelf(toShelfId: toShelfId, shelfIds: shelfIds));
