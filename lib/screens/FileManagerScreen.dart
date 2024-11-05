@@ -62,7 +62,10 @@ class _FileManagerScreenState extends State<FileManagerScreen> with SingleTicker
           onPopInvokedWithResult: (didPop, result) {
               if(didPop) return;
               if(isSelectionMode) {//is selection mode -> move to normal
-                setState(() => isSelectionMode = false);
+                setState((){
+                  isSelectionMode = false;
+                  selectedItemsIndex.clear();
+                });
               } else{ // else go to last shelf
                 setState(()=>_loadPage(shelfId: (_shelfPaths..removeLast()).lastOrNull));
               }
@@ -94,7 +97,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> with SingleTicker
               body: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Stack(
-            fit: StackFit.expand,
+            fit: StackFit.loose,
             children: [
               Column(
                 mainAxisSize: MainAxisSize.max,
@@ -212,6 +215,16 @@ class _FileManagerScreenState extends State<FileManagerScreen> with SingleTicker
                         : null),
                   )
                 ],
+              ),
+              if(selectedItemsIndex.isNotEmpty) Align(
+                alignment: Alignment.bottomCenter,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: FilledButton(onPressed: ()=>_deleteSelectedItems(shelf,selectedItemsIndex),
+                    style: const ButtonStyle(backgroundColor: WidgetStatePropertyAll(Colors.red)),
+                    child: const Text("Delete Selected"),),
+                ),
               )
             ],
           ),
@@ -319,6 +332,19 @@ class _FileManagerScreenState extends State<FileManagerScreen> with SingleTicker
     HapticFeedback.vibrate();
     _animationController.forward().then((_) => _animationController.reverse());
     setState(()=>isSelectionMode = true);
+  }
+
+  _deleteSelectedItems(Shelf shelf, Set<int> selectedItemsIndex) {
+    final List<String> shelfIds=[];
+    final List<String> fileIds=[];
+    for(int idx in selectedItemsIndex){
+      if(shelf.shelfs.length>idx){
+        shelfIds.add(shelf.shelfs[idx].id);
+      }else{
+        fileIds.add(shelf.files[idx-shelf.shelfs.length].id);
+      }
+    }
+    _shelfBloc.add(DeleteItems(parentShelfId: shelf.id, fileIds: fileIds, shelfIds: shelfIds,permanentDelete: true));
   }
 
   @override

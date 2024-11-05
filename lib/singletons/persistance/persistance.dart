@@ -7,6 +7,7 @@ import 'package:shelf/models/Pageable.dart';
 import 'package:shelf/models/shelf.dart';
 import 'package:shelf/singletons/LoggerSingleton.dart';
 import 'package:shelf/singletons/persistance/model/create-file.dart';
+import 'package:shelf/state/shelf/shelf_bloc.dart';
 import 'package:sqflite/sqflite.dart';
 
 class Persistance{
@@ -255,36 +256,32 @@ class Persistance{
     return await _db!.rawUpdate(filesMoveUpdateQuery,[toShelfId,shelfIds.join(',')]);
   }
 
-  Future<int> _deleteShlefs({required List<String> shelfIds,required bool permanentDelete}) async{
+  Future<int> _deleteShlefs({required String? parentShelfId,required List<String> shelfIds,required bool permanentDelete}) async{
     if(shelfIds.isEmpty || _db==null) throw Exception("Invalid State");
 
+    final idPlaceHolders=List.filled(shelfIds.length, '?,').join(',');
     if(permanentDelete){
-      return await _db!.rawDelete('''
-        DELETE FROM $_tableShelf
-        WHERE id IN (?);
-      ''',[shelfIds.join(',')]);
+      return await _db!.delete(_tableShelf,
+          where: '${parentShelfId==null || parentShelfId==ShelfState.ROOT_SHELF_ID ? 'parent_shelf_id IS ?':'parent_shelf_id = ?'} AND id IN ($idPlaceHolders)',
+          whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...shelfIds]);
     }
-    return await _db!.rawUpdate('''
-      UPDATE TABLE $_tableShelf
-      SET active=0
-      WHERE id IN (?)
-    ''', [shelfIds.join(',')]);
+    return await _db!.update(_tableShelf,{'active':0},
+        where: '${parentShelfId==null || parentShelfId==ShelfState.ROOT_SHELF_ID ? 'parent_shelf_id IS ?':'parent_shelf_id = ?'} AND id IN ($idPlaceHolders)',
+        whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...shelfIds],conflictAlgorithm: ConflictAlgorithm.rollback);
   }
 
-  Future<int> _deleteFiles({required List<String> fileIds,required bool permanentDelete}) async{
+  Future<int> _deleteFiles({required String? parentShelfId,required List<String> fileIds,required bool permanentDelete}) async{
     if(fileIds.isEmpty || _db==null) throw Exception("Invalid State");
 
+    final idPlaceHolders=List.filled(fileIds.length, '?').join(',');
     if(permanentDelete){
-      return await _db!.rawDelete('''
-        DELETE FROM $_tableFile
-        WHERE id in (?)
-      ''',[fileIds.join(',')]);
+      return await _db!.delete(_tableFile,
+          where: '${parentShelfId==null || parentShelfId==ShelfState.ROOT_SHELF_ID ? 'shelf_id IS ?':'shelf_id = ?'} AND id IN ($idPlaceHolders)',
+          whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...fileIds]);
     }
-    return await _db!.rawUpdate('''
-      UPDATE TABLE $_tableFile
-      SET active=0
-      WHERE id IN (?)
-    ''', [fileIds.join(',')]);
+    return await _db!.update(_tableFile,{'active':0},
+        where: '${parentShelfId==null || parentShelfId==ShelfState.ROOT_SHELF_ID ? 'shelf_id IS ?':'shelf_id = ?'} AND id IN ($idPlaceHolders)',
+        whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...fileIds],conflictAlgorithm: ConflictAlgorithm.rollback);
   }
 
   static void _deleteOldInactiveItems() async {//delete inactive items older than 1 month
@@ -349,13 +346,15 @@ class Persistance{
     return result.reduce((value, element) => value+element);
   }
 
-  Future<int> deleteItems({required List<String> fileIds,required List<String> shelfIds,required bool permanentDelete}) async{
+  Future<int> deleteItems({required String parentShelfId,required List<String> fileIds,required List<String> shelfIds,required bool permanentDelete}) async{
     if((shelfIds.isEmpty && fileIds.isEmpty) || _db==null) throw Exception("Invalid state");
 
     List<Future> futures=[];
 
-    if(fileIds.isNotEmpty) futures.add(_deleteFiles(fileIds: fileIds, permanentDelete: permanentDelete));
-    if(shelfIds.isNotEmpty) futures.add(_deleteShlefs(shelfIds: shelfIds, permanentDelete: permanentDelete));
+    if(fileIds.isNotEmpty) futures.add(_deleteFiles(parentShelfId:parentShelfId,fileIds: fileIds, permanentDelete: permanentDelete));
+
+    //deleting shelf means there nested files shelfs are auto deleted because of cascade
+    if(shelfIds.isNotEmpty) futures.add(_deleteShlefs(parentShelfId:parentShelfId,shelfIds: shelfIds, permanentDelete: permanentDelete));
     final result=await Future.wait(futures);
     return result.reduce((value, element) => value+element);
   }
