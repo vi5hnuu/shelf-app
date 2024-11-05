@@ -12,6 +12,7 @@ class PathView extends StatelessWidget {
   final Function(String shelfId)? onPathClick;
   final List<Shelf> paths;
   final ScrollController _scrollController = ScrollController();
+  final double fontSize=24;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +26,7 @@ class PathView extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(mainAxisSize: MainAxisSize.max,
           mainAxisAlignment: MainAxisAlignment.start,
-          children:paths.map((path)=>GestureDetector(onTap: onPathClick==null ? null : ()=>onPathClick!(path.id),
-              child: RichText(text: TextSpan(children: [if(path.title.isNotEmpty) const TextSpan(text: "/",style: TextStyle(color: Colors.black)), TextSpan(text: path.title,style: TextStyle(color: onPathClick!=null ? Colors.blue:Colors.grey))]),))).toList()),);
+          children:paths.length==1 ? [Text("/",style:TextStyle(fontWeight: FontWeight.bold,fontSize: fontSize) ,)] : paths.map((path)=>[if(path!=paths.first) Text("/",style: TextStyle(fontWeight: FontWeight.bold,fontSize: fontSize),), GestureDetector(onTap: onPathClick==null ? null : ()=>onPathClick!(path.id),
+              child: Text(path.title,style: TextStyle(color: onPathClick!=null ? Colors.blue:Colors.grey,fontSize: fontSize)))]).expand((items)=>items).toList()),);
   }
 }
