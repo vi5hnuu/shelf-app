@@ -257,7 +257,7 @@ class Persistance{
   Future<int> _deleteShlefs({required String? parentShelfId,required List<String> shelfIds}) async{
     if(shelfIds.isEmpty || _db==null) throw Exception("Invalid State");
 
-    final idPlaceHolders=List.filled(shelfIds.length, '?,').join(',');
+    final idPlaceHolders=List.filled(shelfIds.length, '?').join(',');
     return await _db!.delete(_tableShelf,
         where: '${parentShelfId==null || parentShelfId==ShelfState.ROOT_SHELF_ID ? 'parent_shelf_id IS ?':'parent_shelf_id = ?'} AND id IN ($idPlaceHolders)',
         whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...shelfIds]);
@@ -290,9 +290,9 @@ class Persistance{
     final pathsRaw = await _db!.query(_tableFile,
         where: '${parentShelfId==null || parentShelfId==ShelfState.ROOT_SHELF_ID ? 'shelf_id IS ?':'shelf_id = ?'} ${fileIds!=null && fileIds.isNotEmpty ? 'And id in (${List.filled(fileIds.length, '?').join(',')})':''}',
         whereArgs: [parentShelfId==ShelfState.ROOT_SHELF_ID ? null : parentShelfId,...(fileIds??[])],
-        columns: ["path"],
+        columns: ["file_path"],
     );
-    return pathsRaw.map((rawEntry)=>rawEntry['path'] as String).toList();
+    return pathsRaw.map((rawEntry)=>rawEntry['file_path'] as String).toList();
   }
 
   Future<List<String>> getNestedFilePaths({required String shelfId}) async {

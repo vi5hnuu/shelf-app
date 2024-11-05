@@ -72,7 +72,14 @@ class _FileManagerScreenState extends State<FileManagerScreen> with SingleTicker
           },
           canPop: _shelfPaths.isEmpty && !isSelectionMode,
           child: BlocConsumer<ShelfBloc, ShelfState>(
-              listener: (context, state) {},
+              listener: (context, state) {
+                if(state.isDone(forr: Httpstates.DELETE_ITEMS)){
+                  setState(() {
+                    selectedItemsIndex.clear();
+                    isSelectionMode=false;
+                  });
+                }
+              },
               buildWhen: (previous, current) => previous != current,
               listenWhen: (previous, current) => previous != current,
               builder: (context, state) {
